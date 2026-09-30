@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trajectory Lens · Junjie Nian</title>
+<meta name="description" content="Compare agent trajectories, inspect original evidence, and explore released SliceGraph process families. Files are processed in your browser.">
+<meta name="theme-color" content="#f7f5ef">
+<link rel="canonical" href="https://junjienian.com/tools/trajectory-lens/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-labelledby%3D%22title%22%3E%0A%20%20%3Ctitle%3EJN%3C%2Ftitle%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%23191918%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M14%2016h8v22.5c0%205.3%202.2%208%206.6%208%204.5%200%206.7-2.7%206.7-8V16h8v22.8c0%2010.3-5%2015.2-14.7%2015.2S14%2049.1%2014%2038.8V16Z%22%20fill%3D%22%23fffefa%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2249%22%20cy%3D%2215%22%20r%3D%225%22%20fill%3D%22%238f1d2c%22%2F%3E%0A%3C%2Fsvg%3E%0A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,500;6..72,600&amp;display=swap" rel="stylesheet">
+<style>:root {
+    --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --color-bg: #f7f5ef;
+    --color-bg-raised: #fffefa;
+    --color-bg-nav: rgba(247, 245, 239, 0.9);
+    --color-text: #191918;
+    --color-text-secondary: #51504c;
+    --color-text-muted: #6b675f;
+    --color-accent: #8f1d2c;
+    --color-accent-hover: #68131f;
+    --color-accent-soft: rgba(143, 29, 44, 0.07);
+    --color-border: #dcd7cd;
+    --color-border-light: #e9e5dd;
+    --shadow-sm: 0 1px 2px rgba(28, 24, 18, 0.04), 0 8px 24px rgba(28, 24, 18, 0.04);
+    --shadow-md: 0 2px 4px rgba(28, 24, 18, 0.05), 0 18px 48px rgba(28, 24, 18, 0.08);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-fast: 180ms ease;
+    --transition-normal: 360ms var(--ease-out);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) var(--color-bg);
+}
+
+body {
+    min-height: 100vh;
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--color-text);
+    background: var(--color-bg);
+}
+
+::selection {
+    color: var(--color-text);
+    background: rgba(143, 29, 44, 0.14);
+}
+
+a {
+    color: var(--color-accent);
+    text-decoration: none;
+    text-underline-offset: 3px;
+    transition: color var(--transition-fast);
+}
+
+a:hover { color: var(--color-accent-hover); }
+
+img { max-width: 100%; }
+
+.skip-link {
+    position: fixed;
+    top: 8px;
+    left: 16px;
+    z-index: 200;
+    padding: 10px 16px;
+    background: var(--color-text);
+    color: #fff;
+    transform: translateY(-160%);
+}
+
+.skip-link:focus { transform: translateY(0); color: #fff; }
+main[id] { scroll-margin-top: 86px; }
+
+button, a { -webkit-tap-highlight-color: transparent; }
+
+:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 4px;
+    border-radius: 2px;
+}
+
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid rgba(220, 215, 205, 0.8);
+    background: var(--color-bg-nav);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.nav-container {
+    width: min(1120px, calc(100% - 64px));
+    height: 68px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nav-brand {
+    font-family: var(--font-display);
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--color-text);
+}
+
+.nav-brand span { color: var(--color-accent); }
+.nav-brand:hover { color: var(--color-text); }
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.nav-link {
+    position: relative;
+    padding: 23px 0 20px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--color-text-secondary);
+}
+
+.nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform var(--transition-fast);
+}
+
+.nav-link:hover,
+.nav-link.active { color: var(--color-text); }
+
+.nav-link:hover::after,
+.nav-link.active::after {
+    transform: scaleX(1);
+    transform-origin: left;
+}
+
+.nav-link-cv { color: var(--color-accent); }
+
+.reveal,
+html.js .reveal,
+.reveal.revealed {
+    opacity: 1;
+    transform: none;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { border-radius: 99px; background: var(--color-border); }
+
+@media (max-width: 640px) {
+    .nav-container {
+        width: min(100% - 32px, 1120px);
+        height: 60px;
+    }
+
+    .nav-links { gap: 16px; }
+    .nav-link { padding: 20px 0 17px; font-size: 11.5px; }
+    .nav-brand { font-size: 22px; }
+}
+
+@media (max-width: 360px) {
+    .nav-links { gap: 12px; }
+    .nav-link { font-size: 11px; }
+}
+
+@media (max-width: 430px) {
+    .nav-link-cv { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    .reveal { opacity: 1 !important; transform: none !important; }
+}
+
+@media print {
+    .navbar { display: none; }
+    body { background: #fff; }
+    .reveal { opacity: 1 !important; transform: none !important; }
+    a { color: #000; }
+}
+</style>
+<style>/* The tool uses the academic site's shared type, color and content grid. */
+:root{--text:var(--color-text,#191918);--muted:var(--color-text-muted,#6b675f);--line:var(--color-border,#dcd7cd);--paper:var(--color-bg-raised,#fffefa);--accent:var(--color-accent,#8f1d2c);--compare:#52657f;--shared:#383833;--teal:var(--accent);--violet:var(--compare);--amber:#87642e;--red:#8f1d2c}
+.lens-page{width:min(1120px,calc(100% - 64px));margin:0 auto;padding:35px 0 64px}.tool-intro{margin-bottom:22px}.tool-intro h1{font-family:var(--font-display);font-size:clamp(42px,5vw,56px);font-weight:600;line-height:1.08;letter-spacing:-.035em;margin:0 0 9px}.deck{font-size:14px;line-height:1.65;color:var(--color-text-secondary);max-width:750px}.tool-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:22px;padding:8px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.view-tabs,.top-actions{display:flex;align-items:center;gap:10px}.view-tabs{gap:24px}.view-tabs button{border:0;border-bottom:2px solid transparent;background:none;padding:9px 0;color:var(--muted);font-size:12px}.view-tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}.top-actions{gap:8px}.language-button{min-width:36px}.eyebrow{font-size:11px;font-weight:500;color:var(--muted);margin:0 0 5px;letter-spacing:0;text-transform:none}
+button,.secondary{font-family:var(--font-body);font-size:12px;font-weight:500;line-height:1.4;color:var(--text);border:1px solid var(--line);background:transparent;border-radius:0;padding:7px 11px;cursor:pointer;transition:background 160ms,color 160ms,border-color 160ms}.secondary{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;white-space:nowrap}button:hover,.secondary:hover{background:#eeebe3;border-color:#bcb5a8;color:var(--text)}button:disabled{cursor:default;opacity:.4}.primary{color:#fffefa;background:var(--accent);border-color:var(--accent)}.primary:hover{color:#fffefa;background:var(--color-accent-hover);border-color:var(--color-accent-hover)}.quiet,.text-button{border:0;background:none;padding:6px 7px}.text-button{color:var(--accent);font-size:11px;text-decoration:underline;text-underline-offset:3px}.quiet:hover,.text-button:hover{background:none;color:var(--accent)}h2,h3{font-family:var(--font-display);font-weight:600;line-height:1.2;letter-spacing:-.015em}h2{font-size:25px}h3{font-size:21px}.small{font-size:11.5px;line-height:1.65}.muted{color:var(--muted)}
+.dataset-strip{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 12px;padding-bottom:17px;margin-bottom:18px}.data-kind{font-size:10.5px;color:var(--muted);line-height:1.5;white-space:nowrap}.data-kind::before{content:'·';margin-right:6px}.dataset-strip strong{font-size:12px;font-weight:500;order:-1}.dataset-description{color:var(--muted);font-size:11.5px}.dataset-strip .text-button{margin-left:auto;white-space:nowrap}.workspace-grid{display:grid;grid-template-columns:174px minmax(0,1fr);gap:30px;align-items:start}.run-sidebar{min-width:0;padding-top:1px}.panel-label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:500;line-height:1.5;color:var(--muted);margin-bottom:9px}.panel-label>span:last-child:not(:first-child){font-family:Consolas,monospace;font-size:10px}.run-card{padding:7px 0;margin-bottom:7px;border:0}.run-select{display:block;border:0;width:100%;text-align:left;background:none;padding:0}.run-select:hover{background:none}.run-label{display:flex;align-items:flex-start;justify-content:space-between;gap:7px;font-size:12px;font-weight:500;line-height:1.5;overflow-wrap:anywhere}.run-card.current .run-label{color:var(--accent)}.run-card.compare .run-label{color:var(--compare)}.outcome{font-size:9px;font-weight:400;white-space:nowrap;color:var(--muted)}.outcome.success{color:#46654f}.outcome.failure{color:var(--accent)}.run-model{display:block;font-size:10px;color:var(--muted);margin-top:3px}.run-card-bottom{display:flex;align-items:center;justify-content:space-between;gap:5px;padding-top:5px;font-size:9.5px;color:var(--muted)}.compare-button{font-size:9.5px;padding:0;border:0;color:var(--compare);white-space:normal}.run-card.current .run-card-bottom>span:last-child{color:var(--accent)}.matching-note{margin:15px 0;font-size:11px;line-height:1.8;color:var(--muted)}.matching-note strong{display:block;margin-bottom:5px;font-weight:500;color:var(--text)}.matching-note>div{margin-top:6px}.warning-note{color:var(--amber)}
+.atlas-panel{min-width:0}.atlas-header{display:flex;justify-content:flex-end;align-items:center;margin-bottom:7px}.atlas-stat{font-size:10px;color:var(--muted);white-space:nowrap}.atlas-stat b{font-weight:400;color:var(--color-text-secondary);font-family:Consolas,monospace}.atlas-stat span{margin:0 3px}.graph-wrap{height:335px;position:relative;background:var(--paper);overflow:hidden}.graph-wrap svg,.kernel-wrap svg{display:block;width:100%;height:100%;overflow:visible}.graph-legend{display:flex;align-items:center;gap:17px;flex-wrap:wrap;padding:9px 0;font-size:10px;color:var(--muted)}.graph-legend>span{display:inline-flex;align-items:center;gap:6px}.legend-dot{display:inline-block;width:7px;height:2px;background:var(--shared)}.legend-dot.teal{background:var(--accent)}.legend-dot.violet{background:var(--compare)}.legend-dot.shared{background:var(--shared)}.comparison{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 15px;padding-top:7px;color:var(--muted);font-size:10.5px;line-height:1.7}.comparison-runs{color:var(--color-text-secondary)}.graph-node{cursor:pointer}.graph-node rect{transition:stroke 150ms,fill 150ms}.graph-node text{pointer-events:none}.graph-node:hover rect,.graph-node:focus rect{stroke:var(--accent);stroke-width:2}.graph-node:focus{outline:none}.graph-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:35px;background:var(--paper);color:var(--muted);font-size:13px;line-height:1.8}
+.replay-panel{margin:26px 0 0;padding-top:17px;border-top:1px solid var(--line);min-width:0}.replay-header{display:flex;justify-content:space-between;align-items:center;gap:15px}.replay-header h2{font-family:var(--font-body);font-size:12px;font-weight:500;letter-spacing:0}.replay-header #replay-name{font-weight:400;color:var(--muted);font-size:11px;margin-left:10px}.replay-controls{display:flex;align-items:center;gap:4px}.replay-controls button{font-size:11px;min-height:25px;padding:3px 8px;border:0}.replay-controls button:first-child,.replay-controls button:nth-child(3){font-size:18px;padding:0 8px}.mono{font-family:Consolas,monospace;white-space:nowrap;font-size:10px;color:var(--muted);margin-left:9px}.step-track{display:flex;gap:0;overflow:auto;min-width:0;padding:13px 0 8px}.step-cell{flex:1;min-width:95px;max-width:170px;padding:7px 9px;text-align:left;font-size:11px;line-height:1.5;background:none;border:0;border-left:1px solid var(--line);white-space:normal;overflow-wrap:anywhere}.step-cell:first-child{border-left:0}.step-number{display:block;font-family:Consolas,monospace;font-size:9px;color:var(--muted);margin-bottom:4px}.step-cell.revisit .step-number{color:var(--amber)}.step-cell.active{color:var(--accent);background:var(--color-accent-soft)}.step-cell.active .step-number{color:var(--accent)}input[type=range]{width:100%;height:12px;accent-color:var(--accent);margin:0}.run-metrics{display:flex;flex-wrap:wrap;gap:5px 18px;font-size:10px;line-height:1.6;color:var(--muted);padding-top:7px}.run-metrics b{font-weight:400;font-family:Consolas,monospace;color:var(--color-text-secondary);margin-right:5px}.run-metrics .explain{margin-left:auto;font-size:9.5px}.evidence-panel{margin-top:19px;padding-top:14px;border-top:1px solid var(--line);min-width:0}.evidence-panel>summary{display:flex;align-items:baseline;gap:14px;font-size:12px;font-weight:500;cursor:pointer;list-style:none}.evidence-panel>summary::before{content:'+';color:var(--accent);font-size:16px;font-weight:400}.evidence-panel[open]>summary::before{content:'−'}.evidence-panel summary::-webkit-details-marker{display:none}.evidence-panel #evidence-index{font-family:Consolas,monospace;font-size:10px;font-weight:400;color:var(--muted)}#evidence-content{max-width:820px;padding:15px 0 5px}.evidence-title{font-size:24px;margin:0 0 7px}.state-chip{font-family:Consolas,monospace;font-size:10px;color:var(--muted);overflow-wrap:anywhere}.evidence-sub{font-size:10.5px;color:var(--muted);margin:6px 0 12px}.raw-label{display:none}.raw-text{font-family:Consolas,"Microsoft YaHei",monospace;font-size:11.5px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;color:var(--text);padding:0}.occurrences{margin-top:13px}.occurrences button{font-size:9.5px;padding:3px 6px;margin:4px 4px 0 0;max-width:100%;overflow-wrap:anywhere;border:0}.occurrences button.active{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+.heading-row{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin:27px 0 22px}.heading-row h2{font-size:31px;margin-bottom:7px}.release-toolbar{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap;padding:12px 0;margin:0 0 23px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.release-toolbar label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--muted)}.release-toolbar select{background:transparent;border:1px solid var(--line);border-radius:0;color:var(--text);padding:6px 25px 6px 8px;font-family:var(--font-body);font-size:12px;max-width:100%}.release-toolbar .threshold-label{display:grid;grid-template-columns:1fr auto;gap:5px 12px;min-width:180px}.threshold-label input{grid-column:1/-1}.threshold-label strong{font-family:Consolas,monospace;font-weight:400;color:var(--text)}#release-counts{margin-left:auto;font-size:10px;color:var(--muted);text-align:right}.release-grid{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:32px}.kernel-panel{min-width:0}.kernel-panel .atlas-header{justify-content:space-between;align-items:baseline}.kernel-panel .atlas-header h2{font-family:var(--font-body);font-size:12px;font-weight:500;letter-spacing:0}.kernel-wrap{height:388px;background:var(--paper)}.kernel-detail{font-size:10.5px;color:var(--muted);min-height:42px;line-height:1.8;padding:10px 0}.kernel-detail strong{font-weight:400;color:var(--text)}.family-big{font-family:var(--font-display);font-size:30px;font-weight:500;line-height:1.3;margin:10px 0 3px}.family-caption{font-size:11px;color:var(--muted);margin-bottom:17px}.visit-row{display:grid;grid-template-columns:87px minmax(0,1fr) 22px;align-items:center;gap:8px;font-size:9.5px;line-height:1.5;margin:8px 0}.visit-row>span:first-child{overflow-wrap:anywhere}.visit-row>span:last-child{text-align:right;font-family:Consolas,monospace}.visit-row .bar{height:3px;background:#e6e1d7}.visit-row .bar span{display:block;height:100%;background:var(--accent)}.release-summary>p{margin-top:17px}.matrix-section{margin-top:24px;border-top:1px solid var(--line);padding-top:19px}.matrix-heading{margin-bottom:15px}.matrix-heading h2{font-size:25px}.matrix-heading h2>span:last-child:not(:first-child){font-family:Consolas,monospace;font-size:10.5px;font-weight:400;color:var(--muted);margin-left:10px;letter-spacing:0}.matrix-heading>p{margin-top:5px}.matrix-layout{display:block}.matrix-scroll{overflow:auto;min-width:0}.matrix-table{border-collapse:separate;border-spacing:2px;width:100%;font-family:Consolas,monospace;font-size:10px;line-height:1.5}.matrix-table th{padding:4px;color:var(--muted);font-weight:400;text-align:center;max-width:80px;overflow-wrap:anywhere}.matrix-table th:first-child{text-align:left;min-width:90px}.matrix-table td{padding:0}.matrix-table td button{display:block;width:100%;min-width:34px;padding:7px 1px;font-family:Consolas,monospace;font-size:10px;line-height:1.4;color:var(--text);border:1px solid transparent;border-radius:0}.matrix-table td button:hover{border-color:var(--accent)}.matrix-table tr.zero-row td button{color:var(--muted)}.matrix-context{margin-top:17px;font-size:11.5px;line-height:1.8;color:var(--color-text-secondary);max-width:750px}.matrix-context summary{cursor:pointer;color:var(--accent);font-size:12px}.matrix-context p{margin-top:10px}.tv-card{border-top:1px solid var(--line);padding-top:13px;margin-top:16px;font-size:11px}.tv-card strong{display:block;font-family:var(--font-display);font-size:31px;font-weight:500;color:var(--compare);line-height:1.4}.provenance{padding-top:18px;margin-top:20px;font-size:10px;line-height:1.8;color:var(--muted);overflow-wrap:anywhere}.provenance code{font-size:9.5px}.provenance a{display:inline-block;margin-right:13px}
+.tool-footer{width:min(1120px,calc(100% - 64px));margin:auto;padding:18px 0 26px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;font-size:11px;color:var(--muted)}.footer-dot{padding:0 5px}dialog{position:fixed;inset:0;margin:auto;width:calc(100% - 32px);max-width:650px;max-height:90vh;overflow:auto;background:var(--paper);color:var(--text);border:1px solid #bfb7aa;border-radius:0;padding:26px;box-shadow:0 12px 45px rgba(28,24,18,.12)}dialog::backdrop{background:rgba(40,35,26,.25)}.dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:16px}.dialog-head h2{font-size:28px}.close-dialog{border:0;font-size:23px;line-height:1;padding:0 3px}dialog p,dialog li{font-size:13px;line-height:1.8}dialog p{margin-bottom:12px}dialog ol{padding-left:22px;margin:13px 0}dialog li{padding-left:3px;margin-bottom:8px}dialog h3{font-size:23px;margin:20px 0 9px}dialog code{font-family:Consolas,monospace;font-size:12px;color:var(--accent)}dialog pre{padding:13px;background:#f1eee6;border:1px solid var(--line);overflow:auto;font-family:Consolas,monospace;font-size:11px;line-height:1.7}.drop-zone{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;padding:20px 12px;min-height:113px;border:1px dashed #bfb7aa;background:#f5f2eb;margin:15px 0;font-size:13px;text-align:center}.drop-zone.dragging{border-color:var(--accent);background:var(--color-accent-soft)}.drop-zone input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.drop-zone:focus-within{outline:2px solid var(--accent);outline-offset:3px}.drop-zone span{font-size:10.5px;color:var(--muted)}.or-divider{font-size:11px;color:var(--muted);text-align:center;margin:10px 0}textarea{width:100%;border:1px solid var(--line);border-radius:0;background:#fffefa;color:var(--text);padding:11px;font-family:Consolas,monospace;font-size:11px;line-height:1.7;resize:vertical}.dialog-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:20px}.error{font-size:12px;line-height:1.7;color:var(--accent);border-left:2px solid var(--accent);padding:10px 12px;background:var(--color-accent-soft)}.export-options{display:grid;gap:9px;margin-top:18px}.export-options button{text-align:left;padding:13px 14px;background:transparent}.export-options button:hover{background:#f2eee5}.export-options strong{display:block;font-size:13px;font-weight:600;margin-bottom:4px}.export-options span{font-size:11px;color:var(--muted)}.export-options button:disabled{opacity:.5;cursor:not-allowed}.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);max-width:calc(100% - 35px);padding:11px 17px;border:1px solid var(--line);background:var(--paper);color:var(--text);font-size:12px;line-height:1.7;box-shadow:0 5px 20px rgba(28,24,18,.1);z-index:150}.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}[hidden]{display:none!important}
+@media(max-width:900px){.tool-toolbar{flex-wrap:wrap;gap:7px}.view-tabs{flex:1}.workspace-grid{grid-template-columns:158px minmax(0,1fr);gap:22px}.run-label{flex-wrap:wrap;gap:2px 5px}.run-card-bottom{flex-wrap:wrap}.release-grid{grid-template-columns:minmax(0,1fr) 210px;gap:22px}}
+@media(max-width:680px){.lens-page,.tool-footer{width:calc(100% - 32px)}.lens-page{padding-top:25px}.tool-intro h1{font-size:43px}.deck{font-size:13px}.tool-toolbar{margin-top:18px;gap:6px}.view-tabs{width:100%;flex:auto;gap:24px}.top-actions{width:100%;justify-content:flex-start;gap:6px;margin:2px 0}.top-actions button{font-size:11px;padding:6px 9px}.top-actions .quiet{padding-left:0;padding-right:6px}.top-actions .language-button{margin-left:auto;order:5;padding:6px 8px}.dataset-strip{gap:6px 9px;margin-bottom:15px;padding-bottom:3px}.dataset-strip strong{font-size:11px}.workspace-grid{grid-template-columns:1fr;gap:14px}#run-list{display:flex;overflow:auto;gap:20px}.run-card{flex:1;min-width:142px;margin:0 0 5px}.run-label{font-size:11px}.run-card-bottom{font-size:9px}.run-sidebar .panel-label{margin-bottom:6px}.atlas-stat{font-size:9.5px}.graph-legend{gap:12px;font-size:9.5px}.comparison{font-size:10px}.replay-panel{margin-top:22px;padding-top:14px}.replay-header{align-items:flex-start}.replay-header #replay-name{display:block;margin:4px 0 0;font-size:10.5px}.replay-controls{flex-wrap:wrap;justify-content:flex-end;min-width:119px}.replay-controls .mono{width:100%;text-align:right;margin:2px 0 0}.step-cell{min-width:89px;font-size:10.5px}.run-metrics{gap:5px 12px}.run-metrics .explain{width:100%;margin-left:0}.heading-row{margin:22px 0 17px;flex-direction:column;gap:12px}.heading-row h2{font-size:28px}.release-toolbar{gap:13px}.release-toolbar label{min-width:145px;flex:1}.release-toolbar #release-counts{width:100%;text-align:left;margin:0}.release-grid{grid-template-columns:1fr;gap:20px}.release-summary{padding-top:14px;display:grid;grid-template-columns:1fr 1.4fr;gap:0 17px;border-top:1px solid var(--line)}.release-summary>.panel-label,.release-summary>p{grid-column:1/-1}.release-summary #visits-chart{grid-column:2;grid-row:2/4}.family-big{font-size:28px}.visit-row{grid-template-columns:82px minmax(0,1fr) 22px}.matrix-section{margin-top:20px}.tool-footer{padding:17px 0 24px}dialog{padding:22px}.dialog-head h2{font-size:25px}}
+@media(max-width:380px){.nav-links{gap:11px}.nav-link{font-size:10px}.tool-intro h1{font-size:39px}.release-summary{grid-template-columns:1fr}.release-summary #visits-chart{grid-column:1;grid-row:auto}.dialog-actions{flex-wrap:wrap}.dialog-actions button{flex:1;font-size:11px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main" data-i18n="skip">Skip to workspace</a>
+<nav class="navbar" data-i18n-aria="primaryNav" aria-label="Primary navigation"><div class="nav-container"><a href="https://junjienian.com/index.html" class="nav-brand" aria-label="Junjie Nian — Home">JN<span>.</span></a><div class="nav-links"><a href="https://junjienian.com/index.html" class="nav-link" data-i18n="navHome">Home</a><a href="https://junjienian.com/academic.html" class="nav-link" data-i18n="navAcademic">Academic</a><a href="https://junjienian.com/projects.html" class="nav-link active" aria-current="page" data-i18n="navProjects">Projects</a><a href="https://junjienian.com/experience.html" class="nav-link" data-i18n="navExperience">Experience</a><a href="https://junjienian.com/assets/cv.pdf" class="nav-link nav-link-cv" target="_blank" rel="noopener">CV ↗</a></div></div></nav>
+<main id="main" class="lens-page"><header class="tool-intro"><h1>Trajectory Lens</h1><p class="deck" data-i18n="toolIntro">Compare recorded agent paths and inspect their original steps.</p><div class="tool-toolbar"><nav class="view-tabs" data-i18n-aria="views" aria-label="Workspace views"><button class="active" id="tab-workspace" data-view="workspace" aria-pressed="true" data-i18n="workspace">Workspace</button><button id="tab-released" data-view="released" aria-pressed="false" data-i18n="released">Released research</button></nav><div class="top-actions"><button class="quiet language-button" id="language-button" aria-label="Switch to Chinese" title="Switch to Chinese">中文</button><button class="quiet" id="method-button" data-i18n="method">Format & method</button><button class="secondary" id="export-button" data-i18n="export">Export</button><button class="primary" id="import-button" data-i18n="import">Import traces</button></div></div></header>
+ <section id="workspace-view">
+  <div class="dataset-strip"><span class="data-kind" id="data-kind"><span data-i18n="demoKind">Teaching example</span></span><strong id="dataset-title"></strong><button id="reset-demo" class="text-button"><span data-i18n="resetDemo">Load example</span></button></div>
+  <div class="workspace-grid">
+   <aside class="run-sidebar"><div class="panel-label"><span data-i18n="trajectories">TRAJECTORIES</span> <span id="run-count"></span></div><div id="run-list"></div></aside>
+   <section class="atlas-panel" data-i18n-aria="atlasSection" aria-label="Shared-state atlas"><div class="atlas-header"><div class="atlas-stat" id="atlas-stat"></div></div><div class="graph-wrap" id="graph-wrap"><svg id="atlas" role="img" data-i18n-aria="atlasAria" aria-label="Shared states and directed transitions across trajectories"></svg><div class="graph-empty" id="graph-empty" hidden></div></div><div class="graph-legend"><span><i class="legend-dot teal"></i><span data-i18n="currentRoute">Current route</span></span><span><i class="legend-dot violet"></i><span data-i18n="compareRoute">Comparison route</span></span><span><i class="legend-dot shared"></i><span data-i18n="sharedRoute">Shared by both</span></span></div><div class="comparison" id="comparison"></div></section>
+
+  </div>
+  <section class="replay-panel"><div class="replay-header"><div><h2><span data-i18n="replay">Step replay</span> <span id="replay-name"></span></h2></div><div class="replay-controls"><button id="prev-step" data-i18n-aria="previous" aria-label="Previous step">‹</button><button id="play-button" data-i18n-aria="autoReplay" aria-label="Automatic replay"><span data-i18n="play">Play</span></button><button id="next-step" data-i18n-aria="next" aria-label="Next step">›</button><span id="step-count" class="mono"></span></div></div><div class="step-track" id="step-track"></div><label class="sr-only" for="step-slider"><span data-i18n="currentStep">Current step</span></label><input id="step-slider" type="range" min="0" max="1" value="0"><div class="run-metrics" id="run-metrics"></div></section><details id="evidence-details" class="evidence-panel"><summary><span data-i18n="evidence">Original record</span><span id="evidence-index"></span></summary><div id="evidence-content" aria-live="polite"></div></details>
+ </section>
+ <section id="released-view" hidden>
+  <div class="heading-row"><div><h2 data-i18n="releaseHeading">Released process families</h2><p class="deck"><span data-i18n="releaseDeck">Explore released SliceGraph process families through visit distributions and smoothed transition probabilities.</span></p></div><a class="secondary" href="https://github.com/JunjieNian/SliceGraph" target="_blank" rel="noopener"><span data-i18n="sourceRepo">Open source repository</span></a></div>
+  <div class="release-toolbar"><label><span data-i18n="publicCase">Released case</span><select id="case-select"></select></label><label><span data-i18n="processFamily">Process family</span><select id="family-select"></select></label><label class="threshold-label"><span data-i18n="probabilityThreshold">Minimum graph probability</span> <strong id="threshold-value">0.10</strong><input id="threshold" type="range" min="0.02" max="0.4" step="0.01" value="0.1"></label><span id="release-counts"></span></div>
+  <div class="release-grid"><section class="kernel-panel"><div class="atlas-header"><div><h2><span data-i18n="kernelHeading">Family transition graph</span></h2></div><span class="data-kind real"><span data-i18n="releaseKind">Released research data</span></span></div><div class="kernel-wrap"><svg id="kernel-graph" role="img" data-i18n-aria="kernelAria" aria-label="Smoothed transition graph of a released process family"></svg></div><div id="kernel-detail" aria-live="polite" class="kernel-detail"></div></section><aside class="release-summary"><div class="panel-label"><span data-i18n="footprint">FAMILY FOOTPRINT</span></div><div id="family-summary"></div><div id="visits-chart"></div><p class="small muted" id="release-note"></p></aside></div>
+  <section class="matrix-section"><div class="matrix-heading"><h2><span data-i18n="matrixHeading">Complete transition matrix</span> <span>P(next | current)</span></h2><p class="small muted"><span data-i18n="matrixNote">All smoothed probabilities remain visible, including unvisited rows. Select a cell for its precise value.</span></p></div><div class="matrix-layout"><div class="matrix-scroll" id="matrix"></div><details class="matrix-context"><summary data-i18n="matrixRead">Reading notes</summary><p><span data-i18n="matrixExplain1">These are family-level aggregates, not individual trajectories. Families contain only correct runs and have at least three members.</span></p><p><span data-i18n="matrixExplain2">Laplace smoothing uses α = 0.5. Unvisited ordinary rows still carry probability; EOS states are forced to self-loop.</span></p><p><span data-i18n="matrixExplain3">Probability assigned to EOS_wrong therefore does not prove an observed incorrect trajectory in this correct-only family.</span></p><div id="tv-summary"></div></details></div></section>
+  <div class="provenance" id="provenance"></div>
+ </section>
+</main>
+<footer class="tool-footer"><span>Trajectory Lens <span class="footer-dot">·</span> 2026</span><a href="https://junjienian.com" target="_blank" rel="noopener">Junjie Nian</a></footer>
+<div class="toast" id="toast" role="status" hidden></div>
+<dialog id="import-dialog"><div class="dialog-head"><div><p class="eyebrow"><span data-i18n="importEyebrow">BRING YOUR OWN TRACES</span></p><h2><span data-i18n="importHeading">Import your experiment traces</span></h2></div><button class="close-dialog" data-i18n-aria="close" aria-label="Close">×</button></div><p><span data-i18n="importIntro">JSON / JSONL, with an ordered sequence of steps per run. Your state identities determine which steps align.</span></p><label class="drop-zone" id="drop-zone"><input type="file" id="file-input" accept=".json,.jsonl,application/json"><strong id="drop-title" data-i18n="chooseFile">Choose a file, or drop it here</strong><span><span data-i18n="fileLimits">Up to 10 MB · 100 runs · 2,000 steps per run · 20,000 steps in total</span></span></label><div class="or-divider"><span data-i18n="pasteDivider">Or paste JSON / JSONL</span></div><label class="sr-only" for="import-text"><span data-i18n="traceData">Trajectory data</span></label><textarea id="import-text" rows="7" placeholder='{"name":"My experiment","runs":[{"id":"run-1","model":"agent-a","outcome":"success","steps":[{"state":"inspect","label":"Inspect files","text":"Original action and observation"}]}]}'></textarea><p class="small muted"><span data-i18n="privacy">Traces stay in page memory and need to be imported again after a refresh. Your traces are not uploaded.</span></p><div id="import-error" class="error" role="alert" hidden></div><div class="dialog-actions"><button id="download-example" class="secondary"><span data-i18n="downloadExample">Download format example</span></button><button id="import-confirm" class="primary"><span data-i18n="importConfirm">Load into workspace</span></button></div></dialog>
+<dialog id="method-dialog"><div class="dialog-head"><div><p class="eyebrow"><span data-i18n="methodEyebrow">METHOD & FORMAT</span></p><h2><span data-i18n="methodHeading">Transparent alignment rules</span></h2></div><button class="close-dialog" data-i18n-aria="close" aria-label="Close">×</button></div><p data-i18n-html="methodIntro">This workspace inspects original records. The atlas uses <strong>exact identity alignment</strong>, without semantic embeddings, outcome propagation, or automatic trap detection.</p><ol><li data-i18n-html="methodRule1"><code>state / state_id</code>: matching explicit identities align to the same node.</li><li data-i18n-html="methodRule2"><code>keys</code>: without an explicit identity, align by the complete sorted exact key set.</li><li data-i18n="methodRule3">Other records: align by normalized action/tool text, then normalized full text. The rules used appear after import.</li></ol><p><span data-i18n="methodLimits">Node positions aid reading and do not represent latent-space distance. A revisit is not proof of a mistake, trap, or wasted work. Jaccard measures identity overlap between state sets, not strategy equivalence.</span></p><div class="matching-note" id="matching-note"></div><p class="dataset-description" id="dataset-description"></p><h3><span data-i18n="minFormat">Recommended minimal format</span></h3><pre>{
+  "name": "My experiment",
+  "runs": [{
+    "id": "run-1", "model": "agent-a",
+    "outcome": "success",
+    "steps": [{
+      "state": "inspect:file-a",
+      "label": "Inspect file A",
+      "text": "Original action + observation",
+      "tokens": 240
+    }]
+  }]
+}</pre><p class="small muted"><span data-i18n="optionalFields">Optional outcome: success / failure / unknown. Optional tokens and duration_ms must be finite, nonnegative numbers; missing costs remain unknown. Simple steps / trajectory / messages formats are also accepted, with matching notes after import.</span></p><h3><span data-i18n="paperRelation">Relationship to the papers</span></h3><p><span data-i18n="paperNote">TraceGraph and SliceGraph research on process differences inspired this tool. It does not reproduce their mutual-kNN, BCC, activation representations, or family-discovery algorithms. Released examples directly read fixed-version SliceGraph files and preserve their provenance.</span></p><div class="dialog-actions"><button id="method-example" class="secondary"><span data-i18n="downloadExample">Download format example</span></button><button class="primary close-dialog"><span data-i18n="understood">Got it</span></button></div></dialog>
+<dialog id="export-dialog"><div class="dialog-head"><div><p class="eyebrow"><span data-i18n="exportEyebrow">TAKE THE EVIDENCE WITH YOU</span></p><h2><span data-i18n="exportHeading">Export analysis results</span></h2></div><button class="close-dialog" data-i18n-aria="close" aria-label="Close">×</button></div><p><span data-i18n="exportIntro">Save an inspectable report or canonical data for further analysis and collaboration.</span></p><div class="export-options"><button id="export-markdown"><strong><span data-i18n="markdownTitle">Markdown analysis report</span></strong><span><span data-i18n="markdownCaption">Per-run metrics, state overlap, first divergence, and method notes</span></span></button><button id="export-json"><strong><span data-i18n="jsonTitle">Canonical JSON data</span></strong><span><span data-i18n="jsonCaption">Preserves original text, step order, identities, and recorded costs</span></span></button><button id="export-svg"><strong><span data-i18n="svgTitle">SVG state atlas</span></strong><span><span data-i18n="svgCaption">Current atlas and selected routes, editable in vector software</span></span></button></div><p id="svg-export-note" class="small muted" hidden data-i18n="svgUnavailable">SVG export is unavailable above 100 states. Export Markdown or JSON for the complete dataset.</p></dialog>
+<script>/* Explicit UI copy; imported trace content is never translated. */
+(() => {
+ 'use strict';
+ const copy = {
+  skip:['Skip to workspace','跳转到工作台'],primaryNav:['Primary navigation','网站导航'],navHome:['Home','主页'],navAcademic:['Academic','学术'],navProjects:['Projects','项目'],navExperience:['Experience','经历'],toolIntro:['Compare recorded agent paths and inspect their original steps.','比较已记录的智能体路径，检查每一步的原始内容。'],comparisonLine:['{overlap}% state overlap · first difference: step {step} · {a} / {b} revisits','状态重叠 {overlap}% · 首次不同：第 {step} 步 · 重复 {a} / {b} 次'],comparisonIdentical:['{overlap}% state overlap · identical state sequence · {a} / {b} revisits','状态重叠 {overlap}% · 状态顺序一致 · 重复 {a} / {b} 次'],singleRunLine:['{steps} steps · {states} states · {revisits} revisits','{steps} 步 · {states} 个状态 · {revisits} 次重复'],
+  home:['Trajectory Lens home','Trajectory Lens 首页'], views:['Workspace views','工作视图'], workspace:["Workspace","工作台"], released:['Released research','公开研究样例'], method:['Format & method','格式与方法'], import:["Import traces","导入轨迹"],
+  workspaceEyebrow:['OBSERVE THE PROCESS','观察推理过程'], workspaceHeading:["Trajectory Lens","Trajectory Lens"], workspaceDeck:['Align paths, find revisits, and inspect the original evidence at every step.','对齐路径，定位重复，回到每一步的原始证据。'], local:['Processed in this browser','文件在当前浏览器处理'], export:["Export","导出"], demoKind:['Teaching example','教学示例'], importedKind:['Imported data','导入数据'], resetDemo:['Load example','载入示例'], trajectories:["Runs","运行"], selectHint:['Select a route, then compare it with another.','选择一条路径，再与另一条比较。'], researchRoots:['Research behind the tool','研究出发点'], atlasHeading:['Shared-state atlas','共享状态图'], atlasNote:['Edges follow recorded step order · positions are a display layout','连线来自实际步骤顺序 · 位置为显示布局'], atlasAria:['Shared states and directed transitions across trajectories','轨迹共享状态与有向转移图'], atlasSection:['Shared-state atlas','共享状态图'], currentRoute:['Current route','当前路径'], compareRoute:['Comparison route','比较路径'], sharedRoute:['Shared by both','两条共有'], nodeHint:['Select a node to inspect its evidence','点击节点查看证据'], evidence:["Original record","原始记录"], replay:["Replay","回放"], replayNote:['Follow the recorded order; a later visit to the same identity counts as a revisit.','按时间顺序看路径；同一状态的再次出现计作重复访问。'], previous:['Previous step','上一步'], next:['Next step','下一步'], autoReplay:['Automatic replay','自动回放'], play:['Play','播放'], pause:['Pause','暂停'], currentStep:['Current step','当前步骤'],
+  releaseEyebrow:["SliceGraph · released evidence","SliceGraph · 已发布证据"], releaseHeading:["Released process families","已发布的过程家族"], releaseDeck:['Explore released SliceGraph process families through visit distributions and smoothed transition probabilities.','探索 SliceGraph 已发布的过程家族：访问分布与平滑估计转移概率。'], sourceRepo:['Open source repository','查看原始仓库'], publicCase:['Released case','公开案例'], processFamily:['Process family','过程家族'], probabilityThreshold:['Minimum graph probability','图中概率下限'], kernelHeading:['Family transition graph','家族转移图'], kernelNote:['Arrows show smoothed probabilities from visited sources, above both the selected threshold and smoothing baseline.','箭头表示平滑估计概率；仅显示有访问的来源，且高于所选阈值与平滑基线。'], releaseKind:['Released research data','真实发布数据'], kernelAria:['Smoothed transition graph of a released process family','已发布过程家族的平滑估计转移图'], footprint:["State visits","状态访问"], matrixHeading:['Complete transition matrix','完整转移矩阵'], matrixNote:['All smoothed probabilities remain visible, including unvisited rows. Select a cell for its precise value.','矩阵保留所有平滑概率，包括未访问状态的行。选择单元格查看精确值。'], matrixRead:["Reading notes","阅读说明"], matrixExplain1:['These are family-level aggregates, not individual trajectories. Families contain only correct runs and have at least three members.','这些是家族内多条记录的汇总，不是单条轨迹。家族仅来自答对的运行，且规模至少为 3。'], matrixExplain2:['Laplace smoothing uses α = 0.5. Unvisited ordinary rows still carry probability; EOS states are forced to self-loop.','Laplace 平滑 α = 0.5。没有访问的普通状态行也会有概率；EOS 终止状态强制自循环。'], matrixExplain3:['Probability assigned to EOS_wrong therefore does not prove an observed incorrect trajectory in this correct-only family.','因此，矩阵中的 EOS_wrong 概率不代表这个家族存在答错的实测轨迹。'], footer:['From outcomes back to process','从结果回到过程'], close:['Close','关闭'],
+  importEyebrow:["Import traces","导入轨迹"], importHeading:['Import your experiment traces','导入你的实验轨迹'], importIntro:['JSON / JSONL, with an ordered sequence of steps per run. Your state identities determine which steps align.','JSON / JSONL，每条运行包含按顺序排列的步骤。你提供的状态标识决定哪些步骤对齐。'], chooseFile:['Choose a file, or drop it here','选择文件，或拖到这里'], fileLimits:['Up to 10 MB · 100 runs · 2,000 steps per run · 20,000 steps in total','最多 10 MB · 100 条运行 · 每条 2,000 步 · 合计 20,000 步'], pasteDivider:['Or paste JSON / JSONL','或者粘贴 JSON / JSONL'], traceData:['Trajectory data','轨迹数据'], privacy:['Traces stay in page memory and need to be imported again after a refresh. Your traces are not uploaded.','内容只保留在本页内存中；刷新后需要重新导入。不会上传你的轨迹。'], downloadExample:['Download format example','下载格式示例'], importConfirm:['Load into workspace','载入工作台'],
+  methodEyebrow:["Format & method","格式与方法"], methodHeading:['Transparent alignment rules','对齐规则，保持透明'], methodIntro:['This workspace inspects original records. The atlas uses <strong>exact identity alignment</strong>, without semantic embeddings, outcome propagation, or automatic trap detection.','这个工作台是原始记录的检查工具。状态图使用<strong>精确标识对齐</strong>，没有语义嵌入、结果扩散或自动 trap 检测。'], methodRule1:['<code>state / state_id</code>: matching explicit identities align to the same node.','<code>state / state_id</code>：同一个显式标识对齐成同一节点。'], methodRule2:['<code>keys</code>: without an explicit identity, align by the complete sorted exact key set.','<code>keys</code>：没有显式标识时，按排序后的完整键集合精确对齐。'], methodRule3:['Other records: align by normalized action/tool text, then normalized full text. The rules used appear after import.','其他记录：按工具/动作文本或完整文本的规范化结果对齐。导入后会显示使用的规则。'], methodLimits:['Node positions aid reading and do not represent latent-space distance. A revisit is not proof of a mistake, trap, or wasted work. Jaccard measures identity overlap between state sets, not strategy equivalence.','节点位置只为阅读服务，不表示隐空间距离。重复访问不等同于错误、trap 或无效工作。两个状态集合的 Jaccard 仅表示标识重叠，不证明策略等价。'], minFormat:['Recommended minimal format','推荐的最小格式'], optionalFields:['Optional outcome: success / failure / unknown. Optional tokens and duration_ms must be finite, nonnegative numbers; missing costs remain unknown. Simple steps / trajectory / messages formats are also accepted, with matching notes after import.','可选 outcome：success / failure / unknown。可选 tokens、duration_ms 均为有限的非负数；缺失开销会标为未提供。也接受 steps / trajectory / messages 的简单格式，字段映射会显示提示。'], paperRelation:['Relationship to the papers','与论文的关系'], paperNote:['TraceGraph and SliceGraph research on process differences inspired this tool. It does not reproduce their mutual-kNN, BCC, activation representations, or family-discovery algorithms. Released examples directly read fixed-version SliceGraph files and preserve their provenance.','工具由 TraceGraph、SliceGraph 对过程差异的研究启发。它没有复现论文的 mutual-kNN、BCC、activation 表征或家族划分算法。公开研究样例则直接读取固定版本的 SliceGraph 发布文件，并保留其数据来源。'], understood:['Got it','明白了'],
+  exportEyebrow:["Export","导出"], exportHeading:['Export analysis results','导出分析结果'], exportIntro:['Save an inspectable report or canonical data for further analysis and collaboration.','保存可检查的报告或标准化数据，方便继续分析或发给合作者。'], markdownTitle:['Markdown analysis report','Markdown 分析报告'], markdownCaption:['Per-run metrics, state overlap, first divergence, and method notes','逐运行指标、状态重叠、首次分叉与方法说明'], jsonTitle:['Canonical JSON data','标准化 JSON 数据'], jsonCaption:['Preserves original text, step order, identities, and recorded costs','保留原始文本、步骤顺序、标识和已记录开销'], svgTitle:['SVG state atlas','SVG 状态图'], svgCaption:['Current atlas and selected routes, editable in vector software','当前图与选中路径，可在矢量软件中编辑'], svgUnavailable:['SVG export is unavailable above 100 states. Export Markdown or JSON for the complete dataset.','超过 100 个状态时无法导出 SVG。请导出 Markdown 或 JSON 保存完整数据。'],
+  success:['Success','成功'], failure:['Failure','失败'], unknown:['Unknown','未知'], unspecified:['Unspecified','未指定'], runStats:['{steps} steps · {revisits} revisits','{steps} 步 · {revisits} 次重复'], compare:['Compare','比较'], cancelCompare:['Remove comparison','取消比较'], fallbackDescription:['Aligned by explicit identities and exact matching from the imported records.','使用导入记录的显式标识与精确匹配。'], modeExplicit:['Explicit IDs','显式标识'], modeKeys:['Exact key sets','精确键集合'], modeAction:['Action / tool text','工具/动作匹配'], modeText:['Full text','全文匹配'], modeCount:['{mode}: {n} steps','{mode} {n} 步'], matchingHeading:['Current alignment basis','当前对齐依据'], matchingFallback:['Exact state identities','精确状态标识'], revisitNote:['A revisit means reaching the same identity again; it is not automatically an error.','重复访问只是再次抵达同一标识；不自动判为错误。'], textWarning:['{n} steps match by full text: case and repeated whitespace are ignored; different wording remains a different state.','全文匹配 {n} 步：忽略大小写与连续空白，措辞不同会保留为不同状态。'], actionWarning:['{n} steps match by action/tool text: arguments are included; transport call IDs are excluded.','工具/动作匹配 {n} 步：包含参数，忽略传输调用 ID。'], mixedWarning:['Matching modes are mixed; states from different modes never merge.','多种匹配规则混用，各规则之间不会合并。'], tokenWarning:['Only {known}/{total} steps provide token counts; totals include recorded values only.','仅 {known}/{total} 步提供 token 数；总量只含已记录值。'], atlasStats:['<b>{states}</b> states <span> / </span> <b>{edges}</b> unique edges','<b>{states}</b> 状态 <span> / </span> <b>{edges}</b> 种转移'], anotherRoute:['Select another route to compare','选择另一条路径可比较'], totalSteps:['Total steps','总步骤'], uniqueStates:['Unique states','不同状态'], revisits:['Revisits','重复访问'], stateComparison:['Exact-state comparison','状态标识比较'], overlapMetric:['State-set overlap · {intersection}/{union}','状态集合重叠 · {intersection}/{union}'], identicalSteps:['Identical step sequence','步骤序列一致'], firstDivergence:['First divergent step','首次分叉步骤'], pairRevisits:['Revisits in each route','两条路径的重复次数'], identicalNote:['Both routes use the same ordered state identities.','两条路径使用相同顺序的状态标识。'], divergenceNote:['Shared prefix: {n} steps; then “{a}” versus “{b}”.','共同前缀 {n} 步；之后分别进入「{a}」与「{b}」。'], ended:['End of run','结束'], graphLimit:['This dataset has {n} exact states. The atlas is limited to 100 states for readability. Step replay, original evidence, Markdown and JSON exports remain available. Stable state IDs can group equivalent records when your data supports that identity.','这份数据有 {n} 个精确状态。为保持可读性，图形限制为 100 个状态；逐步回放、原文证据、Markdown 与 JSON 导出仍可使用。若数据有对应依据，可以提供稳定的 state 标识聚合记录。'], graphTitle:['{n} shared states, {edges} directed transitions. Current route: {run}.','{n} 个共享状态，{edges} 种有向转移。当前路径：{run}。'], edgeTitle:['{a} → {b}: {n} transitions','{a} → {b}：{n} 次转移'], nodeAria:['{label}, {visits} visits across {runs} runs','{label}，{visits} 次访问，来自 {runs} 条运行'], nodeMeta:['{runs} runs · {visits}×','{runs} 条 · {visits}×'], early:["Early","早期"], mid:["Mid","中期"], late:["Late","晚期"], lateProgress:["Late · mean relative step","晚期 · 平均相对步骤"], eos:['EOS','终止'], revisitMarker:[' · revisit',' · 重复'], stepsMetric:['steps','步骤'], statesMetric:['unique states','不同状态'], revisitRate:['revisit rate','重复访问占比'], partialTokens:[' (partial)','（部分记录）'], missingTokens:[' (not provided)','（未提供）'], demoCosts:['Example costs are manually constructed','示例开销为手工构造'], importedCosts:['Costs come directly from imported fields','开销直接来自导入字段'], records:["{n} records","{n} 条记录"], evidenceStep:['{run} · step {step}','{run} · 第 {step} 步'], originalRecord:["Original record","原始记录"], missingText:['No original text was provided for this step.','这一步未提供原始文本。'], occurrences:['Appears at these steps','在这些步骤出现'], occurrenceLimit:['Showing the first 60 of {n} records; export for the complete dataset.','仅列前 60 条，共 {n} 条；完整记录可导出。'],
+  eosCorrect:['EOS correct','EOS 正确'], eosWrong:['EOS wrong','EOS 错误'], terminalCorrect:['terminal / correct','终止 / 正确'], terminalWrong:['terminal / wrong','终止 / 错误'], missingRelease:['Released data did not load. Open the complete app folder.','发布数据未载入，请使用完整文件夹。'], familyOption:['Family {id} · {n} runs','家族 {id} · {n} 条运行'], fullCase:['Full problem cell: {correct} correct / {wrong} incorrect','完整题目：{correct} 正确 / {wrong} 错误'], familyCoverage:['Released family coverage: {covered} / {correct} correct runs','发布家族覆盖：{covered} / {correct} 条正确运行'], familyLabel:['Family {id}','家族 {id}'], familyCorrectRuns:['{n} correct runs','{n} 条正确运行'], visitedStates:['{n} states with visits','{n} 个有访问的状态'], releaseVisits:['Visits are state-visit counts from the released file. Family member IDs: {members}.','Visits 为发布文件的状态访问计数。家族成员 ID：{members}。'], meanTV:['Mean between-family TV in this case','该案例家族间平均 TV'], tvNote:['Transition-kernel difference reported by the source, on a 0–1 scale; not success rate or a causal effect.','原文件报告的转移核差异，范围 0–1；不是成功率或因果效应。'], provenance:['Source: SliceGraph / results/case_studies · fixed commit','来源：SliceGraph / results/case_studies · 固定提交'], matrixCaption:['Family {id} complete smoothed transition matrix; rows are current states and columns are next states','家族 {id} 的完整平滑转移矩阵；行为当前状态，列为下一状态'], matrixAxes:['current ↓ / next →','当前 ↓ / 下一 →'], matrixAria:['{a} to {b}: {p}','{a} 到 {b}：{p}'], selectKernel:['Select a state or matrix cell to inspect visit counts and probabilities.','选择状态或矩阵单元格，检查访问计数与概率。'], visitsCount:['{n} visits','{n} 次访问'], forcedSelfLoop:['Terminal self-loop is forced by the source code','终止自循环由源代码强制设置'], unvisitedSmoothing:['Unvisited; probabilities come from smoothing','未访问，概率来自平滑'], smoothingBaseline:['Per-target smoothing baseline {p}','每个目标的平滑基线 {p}'], forcedRow:['Terminal row is forced by the source code','终止行由源代码强制设置'], sourceVisits:['Source visits: {n}','来源访问 {n} 次'], smoothingOnly:['This probability can be entirely due to smoothing','此概率可完全来自平滑'], kernelTitle:['SliceGraph {problem}, family {id}: smoothed transitions above the selected threshold and smoothing baseline.','SliceGraph {problem}，家族 {id}：高于所选阈值和平滑基线的平滑转移。'],
+  fileTooLarge:['File exceeds 10 MB. Choose a smaller experiment batch.','文件超过 10 MB。请选取较小的实验批次。'], textTooLarge:['Content exceeds 10 MB.','内容超过 10 MB。'], importError:['Import failed: {message}','导入失败：{message}'], importedToast:['Loaded {n} trajectories.','已载入 {n} 条轨迹。'], reportToast:['Analysis report exported.','分析报告已导出。'], missingEngine:['Open index.html from the complete app folder.','请从完整文件夹打开 index.html'],
+  demoName:['Boundary condition · three repair routes','Boundary condition · 三条修复路径'], demoDescription:["Manually constructed teaching example; not paper results.","手工构造的教学示例，并非论文实验结果。"], demoRunA:['Try, then repair','先试再修'], demoRunB:['Inspect, then patch','先查再改'], demoRunC:['Loop, then stop','重复后停止'], demoRead:['Read issue','读取问题'], demoLocate:['Locate function','定位函数'], demoReproduce:['Reproduce error','复现错误'], demoPatchA:['Initial patch','初版修改'], demoTestFail:['Tests fail','测试未通过'], demoInspectEdge:['Inspect boundary','检查边界'], demoPatchB:['Fix boundary','修正边界'], demoTestPass:['Tests pass','验证通过'], demoSubmit:['Submit result','提交结果'], demoStop:['Budget ends','预算结束']
+ };
+ let language='en';
+ const t=(key,values={})=>{const entry=copy[key];if(!entry)throw new Error('Missing translation key: '+key);return entry[language==='zh'?1:0].replace(/\{(\w+)\}/g,(_,name)=>String(values[name]??'{'+name+'}'));};
+ function apply(){document.documentElement.lang=language==='zh'?'zh-CN':'en';document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));document.querySelectorAll('[data-i18n-html]').forEach(el=>el.innerHTML=t(el.dataset.i18nHtml));document.querySelectorAll('[data-i18n-aria]').forEach(el=>el.setAttribute('aria-label',t(el.dataset.i18nAria)));const button=document.getElementById('language-button');if(button){button.textContent=language==='en'?'中文':'EN';button.setAttribute('aria-label',language==='en'?'Switch to Chinese':'切换到英文');button.setAttribute('title',language==='en'?'Switch to Chinese':'切换到英文');}}
+ window.LensI18n=Object.freeze({t,apply,getLanguage:()=>language,setLanguage:lang=>{if(!['en','zh'].includes(lang))throw new Error('Unknown language');language=lang;apply();},keys:()=>Object.keys(copy)});
+})();
+</script><script>/* Trajectory Lens: dependency-free exact-state trace analysis. */
+(function (root, factory) {
+  'use strict';
+  var engine = factory();
+  if (typeof module === 'object' && module.exports) module.exports = engine;
+  if (root) root.LensEngine = engine;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  var LIMITS = Object.freeze({ runs: 100, stepsPerRun: 2000, totalSteps: 20000 });
+  var MODES = Object.freeze({
+    explicit: 'Explicit state or state_id',
+    keys: 'Exact sorted key set',
+    action: 'Exact normalized action / tool call',
+    text: 'Exact normalized full text'
+  });
+
+  function isObject(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+  function own(object, key) { return Object.prototype.hasOwnProperty.call(object, key); }
+  function fail(message) { throw new Error(message); }
+  function normalizedText(value) { return value.trim().replace(/\s+/g, ' ').toLowerCase(); }
+  function clipped(value, length) {
+    var text = String(value).trim().replace(/\s+/g, ' ');
+    return text.length > length ? text.slice(0, length - 1) + '\u2026' : text;
+  }
+  function optionalString(value, field) {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'string') fail(field + ' must be text.');
+    return value.trim() || undefined;
+  }
+  function finiteNonnegative(value, field) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      fail(field + ' must be a finite, nonnegative number.');
+    }
+    return value;
+  }
+  function stateNodeId(state) {
+    // Two independent integer hashes plus length keep graph IDs compact and
+    // consistent across run filters. Full state values still decide equality.
+    var first = 2166136261, second = 2246822519;
+    for (var index = 0; index < state.length; index += 1) {
+      var code = state.charCodeAt(index);
+      first = Math.imul(first ^ code, 16777619);
+      second = Math.imul(second ^ code, 3266489917);
+    }
+    return 's' + (first >>> 0).toString(16).padStart(8, '0') + (second >>> 0).toString(16).padStart(8, '0') + '-' + state.length.toString(36);
+  }
+  function stableJSON(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stableJSON).join(',') + ']';
+    return '{' + Object.keys(value).sort().filter(function (key) {
+      return value[key] !== undefined;
+    }).map(function (key) { return JSON.stringify(key) + ':' + stableJSON(value[key]); }).join(',') + '}';
+  }
+  function contentText(value) {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.map(contentText).filter(Boolean).join('\n');
+    if (!isObject(value)) return '';
+    if (typeof value.text === 'string') return value.text;
+    if (isObject(value.text) && typeof value.text.value === 'string') return value.text.value;
+    if (typeof value.content === 'string' || Array.isArray(value.content)) return contentText(value.content);
+    if (typeof value.output === 'string') return value.output;
+    return '';
+  }
+  function actionText(raw, location) {
+    if (own(raw, 'action') && raw.action !== null && raw.action !== undefined) {
+      if (typeof raw.action === 'string') return raw.action;
+      if (isObject(raw.action) || Array.isArray(raw.action)) return stableJSON(raw.action);
+      fail(location + '.action must be text, an object, or an array.');
+    }
+    var calls = raw.tool_calls;
+    if (calls !== undefined && calls !== null) {
+      if (!Array.isArray(calls)) fail(location + '.tool_calls must be an array.');
+      var callStrings = calls.map(function (call, index) {
+        if (!isObject(call)) fail(location + '.tool_calls[' + index + '] must be an object.');
+        var fn = isObject(call.function) ? call.function : call;
+        var name = typeof fn.name === 'string' ? fn.name.trim() : '';
+        if (!name) fail(location + '.tool_calls[' + index + '] has no tool name.');
+        // IDs are transport identifiers, not action semantics. Arguments remain exact text.
+        var args = fn.arguments === undefined ? '' : (typeof fn.arguments === 'string' ? fn.arguments : stableJSON(fn.arguments));
+        return name + '(' + args + ')';
+      });
+      if (callStrings.length) return callStrings.join('\n');
+    }
+    if (isObject(raw.function_call)) {
+      var legacy = raw.function_call;
+      if (typeof legacy.name !== 'string' || !legacy.name.trim()) fail(location + '.function_call has no tool name.');
+      return legacy.name + '(' + (legacy.arguments === undefined ? '' : (typeof legacy.arguments === 'string' ? legacy.arguments : stableJSON(legacy.arguments))) + ')';
+    }
+    if (typeof raw.tool === 'string') {
+      return raw.tool + (raw.input === undefined ? '' : ' ' + (typeof raw.input === 'string' ? raw.input : stableJSON(raw.input)));
+    }
+    if (typeof raw.tool_name === 'string') return raw.tool_name;
+    return '';
+  }
+  function tokenValue(raw, location) {
+    var fields = ['tokens', 'token_count'];
+    var result;
+    fields.forEach(function (field) {
+      if (raw[field] !== undefined && raw[field] !== null) {
+        var number = finiteNonnegative(raw[field], location + '.' + field);
+        if (result === undefined) result = number;
+      }
+    });
+    if (raw.usage !== undefined && raw.usage !== null) {
+      if (!isObject(raw.usage)) fail(location + '.usage must be an object.');
+      var usage = raw.usage;
+      ['total_tokens', 'input_tokens', 'output_tokens', 'prompt_tokens', 'completion_tokens'].forEach(function (field) {
+        if (usage[field] !== undefined && usage[field] !== null) finiteNonnegative(usage[field], location + '.usage.' + field);
+      });
+      if (result === undefined && usage.total_tokens !== undefined && usage.total_tokens !== null) result = usage.total_tokens;
+      if (result === undefined && usage.input_tokens !== undefined && usage.input_tokens !== null && usage.output_tokens !== undefined && usage.output_tokens !== null) {
+        result = usage.input_tokens + usage.output_tokens;
+      }
+      if (result === undefined && usage.prompt_tokens !== undefined && usage.prompt_tokens !== null && usage.completion_tokens !== undefined && usage.completion_tokens !== null) {
+        result = usage.prompt_tokens + usage.completion_tokens;
+      }
+    }
+    if (result !== undefined) finiteNonnegative(result, location + '.tokens');
+    return result;
+  }
+  function normalizeStep(raw, index, runId, modeCounts) {
+    var location = 'Run "' + runId + '", step ' + (index + 1);
+    if (typeof raw === 'string') raw = { text: raw };
+    if (!isObject(raw)) fail(location + ' must be text or a step/message object.');
+    var hasAuthoritativeText = typeof raw.text === 'string';
+    if (!hasAuthoritativeText && raw.text !== undefined && raw.text !== null) fail(location + '.text must be text.');
+    var action = actionText(raw, location);
+    var text;
+    if (hasAuthoritativeText) {
+      // Canonical exports already contain the complete evidence text. Preserve it
+      // exactly, including whitespace, instead of appending the retained action.
+      text = raw.text;
+    } else {
+      var sections = [];
+      function section(label, value) { if (value) sections.push({ label: label, value: value }); }
+      section('THOUGHT', contentText(raw.thought));
+      section('CONTENT', contentText(raw.content));
+      section('ACTION', action);
+      section('OBSERVATION', contentText(raw.observation));
+      // Keep a single supplied string untouched. With multiple fields, labels
+      // separate sources without trimming or modifying any supplied string.
+      text = sections.length === 1 ? sections[0].value : sections.map(function (item) {
+        return item.label + ':\n' + item.value;
+      }).join('\n\n');
+    }
+    var explicit;
+    if (raw.state !== undefined && raw.state !== null) explicit = raw.state;
+    else if (raw.state_id !== undefined && raw.state_id !== null) explicit = raw.state_id;
+    var state, mode, keys;
+    if (explicit !== undefined) {
+      if (typeof explicit !== 'string' && typeof explicit !== 'number') fail(location + '.state / state_id must be text or a number.');
+      if (typeof explicit === 'number' && !Number.isFinite(explicit)) fail(location + '.state must be finite.');
+      if (!String(explicit).trim()) fail(location + '.state / state_id cannot be empty.');
+      // Explicit IDs preserve case and whitespace. This is an exact identity, not a display label.
+      state = 'explicit:' + typeof explicit + ':' + JSON.stringify(explicit);
+      mode = 'explicit';
+    }
+    if (raw.keys !== undefined && raw.keys !== null) {
+      if (!Array.isArray(raw.keys) || raw.keys.some(function (key) { return typeof key !== 'string' || !key.trim(); })) {
+        fail(location + '.keys must be an array of nonempty strings.');
+      }
+      keys = Array.from(new Set(raw.keys)).sort();
+      if (mode === undefined && keys.length) {
+        state = 'keys:' + JSON.stringify(keys);
+        mode = 'keys';
+      }
+    }
+    if (mode === undefined && action.trim()) {
+      state = 'action:' + normalizedText(action);
+      mode = 'action';
+    }
+    if (mode === undefined && text.trim()) {
+      state = 'text:' + normalizedText(text);
+      mode = 'text';
+    }
+    if (mode === undefined) fail(location + ' has no usable state, keys, action, or text. A label alone is not state evidence.');
+    var label = optionalString(raw.label, location + '.label') || (explicit !== undefined ? String(explicit) : (keys && keys.length ? keys.join(' + ') : (action || text)));
+    var result = { state: state, label: clipped(label, 96), text: hasAuthoritativeText ? text : (text || action || String(explicit === undefined ? keys.join(', ') : explicit)), matchingMode: mode };
+    if (raw.id !== undefined && raw.id !== null) {
+      if (typeof raw.id !== 'string' && typeof raw.id !== 'number') fail(location + '.id must be text or a number.');
+      result.id = String(raw.id);
+    }
+    if (keys !== undefined) result.keys = keys;
+    var tokens = tokenValue(raw, location);
+    if (tokens !== undefined) result.tokens = tokens;
+    if (raw.duration_ms !== undefined && raw.duration_ms !== null) result.duration_ms = finiteNonnegative(raw.duration_ms, location + '.duration_ms');
+    if (typeof raw.role === 'string') result.role = raw.role;
+    Object.defineProperty(result, '__lensOrigin', { value: { explicit: explicit, action: action } });
+    modeCounts[mode] += 1;
+    return result;
+  }
+  function outcomeOf(raw, location) {
+    var value = raw.outcome;
+    if (value !== undefined && value !== null) {
+      if (value !== 'success' && value !== 'failure' && value !== 'unknown') fail(location + '.outcome must be success, failure, or unknown.');
+      return value;
+    }
+    if (typeof raw.success === 'boolean') return raw.success ? 'success' : 'failure';
+    if (raw.status === 'success' || raw.status === 'succeeded') return 'success';
+    if (raw.status === 'failure' || raw.status === 'failed') return 'failure';
+    return 'unknown';
+  }
+  function normalize(input) {
+    if (!isObject(input) && !Array.isArray(input)) fail('The input must be a JSON object or an array of runs.');
+    var records, meta = {};
+    if (Array.isArray(input)) records = input;
+    else {
+      meta = input;
+      if (own(input, 'runs')) {
+        if (!Array.isArray(input.runs)) fail('runs must be an array.');
+        records = input.runs;
+      } else if (Array.isArray(input.steps) || Array.isArray(input.trajectory) || Array.isArray(input.messages)) records = [input];
+      else fail('No trajectories found. Supply runs, steps, trajectory, or messages.');
+    }
+    if (!records.length) fail('There are no runs to import.');
+    if (records.length > LIMITS.runs) fail('At most ' + LIMITS.runs + ' runs can be imported.');
+    var ids = new Set(), totalSteps = 0, runTokenTotalsIgnored = 0;
+    var modeCounts = { explicit: 0, keys: 0, action: 0, text: 0 };
+    var runs = records.map(function (raw, index) {
+      if (!isObject(raw)) fail('Run ' + (index + 1) + ' must be an object with steps, trajectory, or messages.');
+      var idValue = raw.id !== undefined ? raw.id : raw.run_id;
+      if (idValue !== undefined && idValue !== null && typeof idValue !== 'string' && typeof idValue !== 'number') fail('Run ' + (index + 1) + '.id must be text or a number.');
+      if (typeof idValue === 'number' && !Number.isFinite(idValue)) fail('Run ' + (index + 1) + '.id must be finite.');
+      var id = idValue === undefined || idValue === null ? 'run-' + (index + 1) : String(idValue).trim();
+      if (!id) fail('Run ' + (index + 1) + '.id cannot be empty.');
+      if (ids.has(id)) fail('Duplicate run ID: "' + id + '". Every run needs a unique ID.');
+      ids.add(id);
+      if (tokenValue(raw, 'Run "' + id + '"') !== undefined) runTokenTotalsIgnored += 1;
+      if (raw.duration_ms !== undefined && raw.duration_ms !== null) finiteNonnegative(raw.duration_ms, 'Run "' + id + '".duration_ms');
+      var steps;
+      if (own(raw, 'steps')) steps = raw.steps;
+      else if (own(raw, 'trajectory')) steps = raw.trajectory;
+      else if (own(raw, 'messages')) steps = raw.messages;
+      if (!Array.isArray(steps) || !steps.length) fail('Run "' + id + '" needs a nonempty steps, trajectory, or messages array.');
+      if (steps.length > LIMITS.stepsPerRun) fail('Run "' + id + '" exceeds ' + LIMITS.stepsPerRun + ' steps.');
+      totalSteps += steps.length;
+      if (totalSteps > LIMITS.totalSteps) fail('The dataset exceeds ' + LIMITS.totalSteps + ' total steps.');
+      var run = { id: id, model: optionalString(raw.model, 'Run "' + id + '".model') || 'Unspecified', outcome: outcomeOf(raw, 'Run "' + id + '"'), steps: steps.map(function (step, stepIndex) { return normalizeStep(step, stepIndex, id, modeCounts); }) };
+      if (typeof raw.name === 'string' && raw.name.trim()) run.name = raw.name.trim();
+      return run;
+    });
+    var warnings = [];
+    var modes = Object.keys(modeCounts).filter(function (mode) { return modeCounts[mode] > 0; });
+    if (modeCounts.text) warnings.push(modeCounts.text + ' steps use full-text equality after lowercasing and whitespace normalization. Different wording remains a different state.');
+    if (modeCounts.action) warnings.push(modeCounts.action + ' steps use exact action/tool text after lowercasing and whitespace normalization. Tool arguments are included; transport call IDs are excluded.');
+    if (modes.length > 1) warnings.push('This dataset mixes state matching modes. Identities from different modes never merge.');
+    if (runTokenTotalsIgnored) warnings.push('Token totals recorded on ' + runTokenTotalsIgnored + ' run objects are not distributed across steps. Only step-level token counts enter metrics.');
+    var tokenSteps = runs.reduce(function (sum, run) { return sum + run.steps.filter(function (step) { return step.tokens !== undefined; }).length; }, 0);
+    if (tokenSteps !== totalSteps) warnings.push('Token counts are present for ' + tokenSteps + ' of ' + totalSteps + ' steps. Missing values are unknown; totals include only recorded step counts.');
+    warnings.push('These are exact identity comparisons, not semantic matching or an implementation of the TraceGraph algorithm. A repeated state is not proof of wasted work.');
+    var data = { name: optionalString(meta.name, 'Dataset name') || 'Imported trajectories', runs: runs, matching: { modes: modes, counts: modeCounts, total: totalSteps, descriptions: MODES }, warnings: warnings };
+    var description = optionalString(meta.description, 'Dataset description');
+    var source = optionalString(meta.source, 'Dataset source');
+    if (description) data.description = description;
+    if (source) data.source = source;
+    // Non-enumerable marker keeps JSON export readable and avoids re-encoding identities.
+    Object.defineProperty(data, '__lensNormalized', { value: true });
+    return data;
+  }
+  function parse(text, filename) {
+    if (typeof text !== 'string' || !text.trim()) fail('The file is empty.');
+    text = text.replace(/^\uFEFF/, '');
+    var value;
+    var jsonl = typeof filename === 'string' && /\.(jsonl|ndjson)$/i.test(filename);
+    if (!jsonl) {
+      try { value = JSON.parse(text); }
+      catch (error) {
+        // Multiple valid JSON records are a useful JSONL fallback, but malformed
+        // ordinary JSON must not become an apparently successful one-line import.
+        if (text.trim().split(/\r?\n/).filter(function (line) { return line.trim(); }).length < 2) fail('Invalid JSON: ' + error.message);
+        jsonl = true;
+      }
+    }
+    if (jsonl) {
+      var lines = text.split(/\r?\n/);
+      value = [];
+      lines.forEach(function (line, index) {
+        if (!line.trim()) return;
+        try { value.push(JSON.parse(line)); }
+        catch (error) { fail('Invalid JSONL on line ' + (index + 1) + ': ' + error.message); }
+      });
+      if (!value.length) fail('The JSONL file contains no records.');
+    }
+    var data = normalize(value);
+    if (data.name === 'Imported trajectories' && filename) data.name = String(filename).replace(/^.*[\\/]/, '').replace(/\.(json|jsonl|ndjson)$/i, '');
+    return data;
+  }
+  function asNormalized(data) { return data && data.__lensNormalized === true ? data : normalize(data); }
+  function analyze(input) {
+    var data = asNormalized(input);
+    var stateNames = new Set();
+    data.runs.forEach(function (run) { run.steps.forEach(function (step) { stateNames.add(step.state); }); });
+    var stateIds = new Map(), nodeMap = new Map();
+    var usedNodeIds = new Map();
+    Array.from(stateNames).sort().forEach(function (state) {
+      var id = stateNodeId(state);
+      // A hash collision must never merge two identities. The collision-only
+      // suffix encodes the complete value rather than guessing equivalence.
+      if (usedNodeIds.has(id) && usedNodeIds.get(id) !== state) {
+        id += '-' + Array.from(state).map(function (character) { return character.codePointAt(0).toString(16); }).join('_');
+      }
+      usedNodeIds.set(id, state);
+      stateIds.set(state, id);
+    });
+    var edges = new Map(), runPaths = {}, perRun = [], sets = new Map();
+    var totalTokens = 0, knownTokens = 0, totalSteps = 0, totalRevisits = 0;
+    data.runs.forEach(function (run) {
+      var path = [], states = new Set(), tokenSum = 0, tokenCount = 0, durationSum = 0, durationCount = 0;
+      run.steps.forEach(function (step, index) {
+        var id = stateIds.get(step.state);
+        path.push(id);
+        states.add(step.state);
+        var node = nodeMap.get(id);
+        if (!node) {
+          node = { id: id, state: step.state, label: step.label, text: step.text, matchingMode: step.matchingMode, runIds: new Set(), visits: 0, _progress: 0 };
+          nodeMap.set(id, node);
+        }
+        node.runIds.add(run.id);
+        node.visits += 1;
+        node._progress += run.steps.length === 1 ? 0 : index / (run.steps.length - 1);
+        if (index > 0) {
+          var source = path[index - 1], edgeKey = source + ':' + id;
+          var edge = edges.get(edgeKey);
+          if (!edge) { edge = { source: source, target: id, count: 0, runIds: new Set() }; edges.set(edgeKey, edge); }
+          edge.count += 1;
+          edge.runIds.add(run.id);
+        }
+        if (step.tokens !== undefined) { tokenSum += step.tokens; tokenCount += 1; finiteNonnegative(tokenSum, 'Recorded token sum for run "' + run.id + '"'); }
+        if (step.duration_ms !== undefined) { durationSum += step.duration_ms; durationCount += 1; finiteNonnegative(durationSum, 'Recorded duration sum for run "' + run.id + '"'); }
+      });
+      var revisits = run.steps.length - states.size;
+      perRun.push({ id: run.id, model: run.model, outcome: run.outcome, steps: run.steps.length, uniqueStates: states.size, revisits: revisits, revisitRate: revisits / run.steps.length, totalTokens: tokenCount ? tokenSum : null, tokensComplete: tokenCount === run.steps.length, knownTokenSteps: tokenCount, totalDurationMs: durationCount ? durationSum : null, durationComplete: durationCount === run.steps.length });
+      // Define safely even for imported IDs such as __proto__.
+      Object.defineProperty(runPaths, run.id, { value: path, enumerable: true });
+      sets.set(run.id, states);
+      totalSteps += run.steps.length;
+      totalRevisits += revisits;
+      totalTokens += tokenSum;
+      finiteNonnegative(totalTokens, 'Recorded token sum for the dataset');
+      knownTokens += tokenCount;
+    });
+    var overlaps = [];
+    for (var i = 0; i < data.runs.length; i += 1) {
+      for (var j = i + 1; j < data.runs.length; j += 1) {
+        var a = data.runs[i].id, b = data.runs[j].id, aSet = sets.get(a), bSet = sets.get(b), shared = [];
+        aSet.forEach(function (state) { if (bSet.has(state)) shared.push(stateIds.get(state)); });
+        var union = aSet.size + bSet.size - shared.length;
+        overlaps.push({ a: a, b: b, intersection: shared.length, union: union, jaccard: shared.length / union, sharedStates: shared.sort() });
+      }
+    }
+    var nodes = Array.from(nodeMap.values()).map(function (node) {
+      node.runIds = Array.from(node.runIds);
+      node.progress = node._progress / node.visits;
+      delete node._progress;
+      return node;
+    });
+    var edgeList = Array.from(edges.values()).map(function (edge) { edge.runIds = Array.from(edge.runIds); return edge; });
+    var totals = { runs: data.runs.length, steps: totalSteps, uniqueStates: nodes.length, transitions: edgeList.reduce(function (sum, edge) { return sum + edge.count; }, 0), uniqueEdges: edgeList.length, revisits: totalRevisits, revisitRate: totalRevisits / totalSteps, sharedStates: nodes.filter(function (node) { return node.runIds.length > 1; }).length, successes: data.runs.filter(function (run) { return run.outcome === 'success'; }).length, failures: data.runs.filter(function (run) { return run.outcome === 'failure'; }).length, unknown: data.runs.filter(function (run) { return run.outcome === 'unknown'; }).length, totalTokens: knownTokens ? totalTokens : null, knownTokenSteps: knownTokens, tokensComplete: knownTokens === totalSteps };
+    return { nodes: nodes, edges: edgeList, perRun: perRun, overlaps: overlaps, runPaths: runPaths, totals: totals, matching: data.matching, warnings: data.warnings.slice() };
+  }
+  function firstDivergence(input, aId, bId) {
+    var data = asNormalized(input);
+    var a = data.runs.find(function (run) { return run.id === aId; });
+    var b = data.runs.find(function (run) { return run.id === bId; });
+    if (!a || !b) fail('Choose two existing run IDs to compare.');
+    var index = 0;
+    while (index < a.steps.length && index < b.steps.length && a.steps[index].state === b.steps[index].state) index += 1;
+    var identical = index === a.steps.length && index === b.steps.length;
+    function detail(run) { var step = run.steps[index]; return step ? { state: step.state, label: step.label, text: step.text, index: index } : null; }
+    return { runA: a.id, runB: b.id, index: index, prefixLength: index, identical: identical, reason: identical ? 'identical' : (index === a.steps.length || index === b.steps.length ? 'run-ended' : 'state-mismatch'), a: detail(a), b: detail(b) };
+  }
+  function markdownText(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\/g, '\\\\').replace(/([`*_{}\[\]()#+!|])/g, '\\$1').replace(/[\r\n]+/g, ' ');
+  }
+  function percent(value) { return (value * 100).toFixed(1) + '%'; }
+  function toCanonical(input) {
+    var data = asNormalized(input);
+    var result = { name: data.name, runs: data.runs.map(function (run) {
+      var output = { id: run.id, model: run.model, outcome: run.outcome, steps: run.steps.map(function (step) {
+        var value = { label: step.label, text: step.text };
+        var origin = step.__lensOrigin;
+        if (origin.explicit !== undefined) value.state = origin.explicit;
+        if (step.keys !== undefined) value.keys = step.keys.slice();
+        if (origin.action) value.action = origin.action;
+        if (step.id !== undefined) value.id = step.id;
+        if (step.tokens !== undefined) value.tokens = step.tokens;
+        if (step.duration_ms !== undefined) value.duration_ms = step.duration_ms;
+        if (step.role !== undefined) value.role = step.role;
+        return value;
+      }) };
+      if (run.name) output.name = run.name;
+      return output;
+    }) };
+    if (data.description) result.description = data.description;
+    if (data.source) result.source = data.source;
+    return result;
+  }
+  function exportJSON(input) { return JSON.stringify(toCanonical(input), null, 2) + '\n'; }
+  function exportMarkdown(input, suppliedAnalysis) {
+    var data = asNormalized(input), result = suppliedAnalysis || analyze(data), totals = result.totals;
+    var lines = ['# Trajectory Lens \u2014 ' + markdownText(data.name), '', 'A local exact-state comparison of imported trajectories.', ''];
+    if (data.description) lines.push(markdownText(data.description), '');
+    if (data.source) lines.push('Source: ' + markdownText(data.source), '');
+    lines.push('## Dataset', '', '- Runs: ' + totals.runs, '- Steps: ' + totals.steps, '- Unique states across all runs: ' + totals.uniqueStates, '- States shared by multiple runs: ' + totals.sharedStates, '- State revisits within runs: ' + totals.revisits + ' (' + percent(totals.revisitRate) + ' of steps)', '- Outcomes recorded: ' + totals.successes + ' success, ' + totals.failures + ' failure, ' + totals.unknown + ' unknown', '- Recorded tokens: ' + (totals.totalTokens === null ? 'unknown' : totals.totalTokens.toLocaleString('en-US')) + ' (' + totals.knownTokenSteps + '/' + totals.steps + ' steps have counts; ' + (totals.tokensComplete ? 'complete' : 'incomplete') + ')', '', '## Per-run metrics', '', '| Run | Model | Outcome | Steps | Unique states | Revisits | Revisit rate | Recorded tokens | Token coverage |', '| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |');
+    result.perRun.forEach(function (run) { lines.push('| ' + [markdownText(run.id), markdownText(run.model), run.outcome, run.steps, run.uniqueStates, run.revisits, percent(run.revisitRate), run.totalTokens === null ? 'unknown' : run.totalTokens, run.knownTokenSteps + '/' + run.steps + (run.tokensComplete ? ' complete' : ' incomplete')].join(' | ') + ' |'); });
+    lines.push('', '## Pairwise state overlap', '', 'Jaccard = shared exact states / union of exact states. Repeated visits do not increase overlap.', '');
+    if (!result.overlaps.length) lines.push('A second run is needed for pairwise comparison.');
+    else {
+      lines.push('| Run A | Run B | Shared states | Union | Jaccard | Shared prefix | First divergence |', '| --- | --- | ---: | ---: | ---: | ---: | --- |');
+      result.overlaps.forEach(function (overlap) {
+        var divergence = firstDivergence(data, overlap.a, overlap.b);
+        var detail = divergence.identical ? 'Identical exact state sequence' : (divergence.reason === 'run-ended' ? 'One run ends after the prefix' : 'Step ' + (divergence.index + 1) + ': ' + markdownText(divergence.a.label) + ' / ' + markdownText(divergence.b.label));
+        lines.push('| ' + [markdownText(overlap.a), markdownText(overlap.b), overlap.intersection, overlap.union, percent(overlap.jaccard), divergence.prefixLength, detail].join(' | ') + ' |');
+      });
+    }
+    lines.push('', '## Matching and interpretation', '', 'Matching precedence is explicit state/state_id, then a sorted unique key set, then action/tool text, then full text. Explicit IDs and key strings preserve case and whitespace; fallback text lowercases and collapses whitespace. Labels are clipped for display; identities always use the full value.', '');
+    Object.keys(MODES).forEach(function (mode) { lines.push('- ' + MODES[mode] + ': ' + data.matching.counts[mode] + ' steps'); });
+    lines.push('', 'A revisit is any visit after the first occurrence of an exact state within the same run. Revisit rate divides revisits by all steps. State progress averages relative step positions across all visits (a one-step run has progress 0). First divergence compares only the shared exact prefix. Outcomes come only from explicit outcome, success, or success/failure status fields; message wording does not determine success.', '', 'Token totals sum only step-level counts present in the import. No tokens, duration, quality, or saved cost are estimated. A run-level token total is not distributed across steps.', '');
+    data.warnings.forEach(function (warning) { lines.push('- ' + markdownText(warning)); });
+    return lines.join('\n') + '\n';
+  }
+
+  return Object.freeze({ normalize: normalize, parse: parse, analyze: analyze, firstDivergence: firstDivergence, exportMarkdown: exportMarkdown, toCanonical: toCanonical, exportJSON: exportJSON, limits: LIMITS, matchingModes: MODES });
+});
+</script><script>window.LENS_DEMO = {
+ name:'Boundary condition · 三条修复路径',
+ description:'手工构造的教学数据，演示分叉、重复与恢复；不是论文实验结果。',
+ source:'Illustrative teaching data. All actions, outcomes and costs are manually constructed. State IDs are explicit teaching annotations.',
+ runs:[
+ {id:'先试再修',model:'Demo agent A',outcome:'success',steps:[
+ {state:'read',label:'读取问题',text:'Issue: Empty input raises an exception. Expected behavior: return an empty result.',tokens:180},
+ {state:'locate',label:'定位函数',text:'Action: open src/transform.py\nObservation: transform(items) reads items[0] before checking the input length.',tokens:320},
+ {state:'reproduce',label:'复现错误',text:'Action: run the empty-input test\nObservation: IndexError at items[0].',tokens:210},
+ {state:'patch-a',label:'初版修改',text:'Action: add a guard for None input.\nPatch: if items is None: return []',tokens:410},
+ {state:'test-fail',label:'测试未通过',text:'Action: run test_empty_list\nObservation: FAILED — [] is not None; items[0] still raises IndexError.',tokens:240},
+ {state:'inspect-edge',label:'检查边界',text:'Action: inspect existing tests and the function contract.\nObservation: None and [] both require an empty result. Non-empty input must keep its current behavior.',tokens:460},
+ {state:'patch-b',label:'修正边界',text:'Action: replace the guard with if not items: return [].\nObservation: only the early empty-input branch is changed.',tokens:280},
+ {state:'test-pass',label:'验证通过',text:'Action: run empty and non-empty input tests\nObservation: 3 passed. Regression test covers None, [], and [1, 2].',tokens:230},
+ {state:'submit',label:'提交结果',text:'Final: empty inputs return []; existing non-empty transformation is preserved.\nOutcome annotation: success (illustrative).',tokens:160}]},
+ {id:'先查再改',model:'Demo agent B',outcome:'success',steps:[
+ {state:'read',label:'读取问题',text:'Issue: Empty input raises an exception. Expected behavior: return an empty result.',tokens:180},
+ {state:'locate',label:'定位函数',text:'Action: open src/transform.py\nObservation: items[0] is evaluated without an empty-input check.',tokens:280},
+ {state:'inspect-edge',label:'检查边界',text:'Action: inspect the contract before editing\nObservation: both None and [] require an empty result; tests also cover non-empty input.',tokens:420},
+ {state:'patch-b',label:'修正边界',text:'Action: add if not items: return [] before items[0].',tokens:260},
+ {state:'test-pass',label:'验证通过',text:'Action: run empty and non-empty input tests\nObservation: 3 passed.',tokens:230},
+ {state:'submit',label:'提交结果',text:'Final: the fix matches the empty-input contract.\nOutcome annotation: success (illustrative).',tokens:140}]},
+ {id:'重复后停止',model:'Demo agent C',outcome:'failure',steps:[
+ {state:'read',label:'读取问题',text:'Issue: Empty input raises an exception. Expected behavior: return an empty result.',tokens:180},
+ {state:'locate',label:'定位函数',text:'Action: open src/transform.py\nObservation: items[0] is the failing access.',tokens:280},
+ {state:'reproduce',label:'复现错误',text:'Action: run test_empty_list\nObservation: IndexError at items[0].',tokens:210},
+ {state:'patch-a',label:'初版修改',text:'Action: add a guard for None input.\nPatch: if items is None: return []',tokens:390},
+ {state:'test-fail',label:'测试未通过',text:'Action: run test_empty_list\nObservation: FAILED — [] bypasses the None guard.',tokens:240},
+ {state:'reproduce',label:'复现错误',text:'Action: rerun the same empty-list case without changing the patch\nObservation: same IndexError.',tokens:200},
+ {state:'patch-a',label:'初版修改',text:'Action: reformat the None guard.\nObservation: the condition is still items is None.',tokens:340},
+ {state:'test-fail',label:'测试未通过',text:'Action: run test_empty_list again\nObservation: FAILED — empty list is still not handled.',tokens:230},
+ {state:'inspect-edge',label:'检查边界',text:'Action: inspect function tests\nObservation: [] and None are separate cases. The run ends before applying a corrected patch.',tokens:380},
+ {state:'stop',label:'预算结束',text:'Final: no successful patch was submitted.\nOutcome annotation: failure (illustrative).',tokens:120}]}
+ ]
+};
+</script><script>window.LENS_RELEASED = {"provenance":{"repo":"https://github.com/JunjieNian/SliceGraph","commit":"3947116b2942a87974bc76ccddab3fcaae5a0777","files":[{"name":"qwen3_4b_inst__gpqa__gpqa-64__family_kernels.json","url":"https://github.com/JunjieNian/SliceGraph/blob/3947116b2942a87974bc76ccddab3fcaae5a0777/results/case_studies/qwen3_4b_inst__gpqa__gpqa-64__family_kernels.json","sha256":"26cc68e7999e6393b04db6e0d3c1122635ea12ab74d5aab64ce477b266192119"},{"name":"qwen3_4b_think__hmmt25__hmmt25-15__family_kernels.json","url":"https://github.com/JunjieNian/SliceGraph/blob/3947116b2942a87974bc76ccddab3fcaae5a0777/results/case_studies/qwen3_4b_think__hmmt25__hmmt25-15__family_kernels.json","sha256":"d3d3c379f135db8589f32980143ab65bb2b06362328305b1a5554551ed7a8a68"}],"alpha":0.5,"notes":["Publicly released aggregate per-family typed-state kernels, not raw per-run trajectories.","Exported families are correct-only families with at least three members; family members may not cover all correct runs.","n_correct_runs and n_wrong_runs describe the full problem cell, not the exported family subset.","Kernels use Laplace smoothing with alpha 0.5. Probability mass can exist for transitions never observed.","For non-EOS states, visits is the row count of observed outgoing transitions; the per-edge smoothing baseline is alpha / (visits + alpha * state_count).","EOS_correct and EOS_wrong are absorbing states forced after smoothing. A transition into EOS_wrong in a correct-only family may be smoothing mass.","JSON probabilities are rounded to four decimal places. Use a small tolerance when checking baseline comparisons and row sums.","Graph positions are a display layout; they are not measured activation coordinates."]},"cases":[{"model":"qwen3_4b_inst","dataset":"gpqa","problem_id":"gpqa-64","all_states":["decision_point|early|outer","decision_point|late|core","decision_point|late|outer","decision_point|mid|outer","intermediate|early|core","intermediate|early|outer","shared_trunk|early|outer","shared_trunk|late|outer","shared_trunk|mid|outer","weak_basin|late|outer","EOS_correct","EOS_wrong"],"n_correct_runs":36,"n_wrong_runs":28,"n_families":4,"families":[{"family_id":0,"size":8,"members":[3,4,26,33,36,50,53,54],"kernel":[[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.6071,0.0357,0.0357,0.0357],[0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.6071,0.0357],[0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.6071,0.0357,0.0357,0.0357,0.0357],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[0.0,0.0,0.0,0.0,0.0,0.0,8.0,8.0,8.0,0.0,8.0,0.0]},{"family_id":2,"size":6,"members":[12,15,22,34,56,61],"kernel":[[0.0556,0.0556,0.0556,0.1667,0.0556,0.0556,0.2778,0.0556,0.0556,0.0556,0.0556,0.0556],[0.0417,0.0417,0.0417,0.0417,0.0417,0.0417,0.0417,0.2917,0.0417,0.0417,0.2917,0.0417],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.2143,0.0714,0.0714,0.0714],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.3125,0.0625,0.0625,0.0625,0.0625,0.0625],[0.125,0.0417,0.0417,0.0417,0.0417,0.0417,0.0417,0.0417,0.4583,0.0417,0.0417,0.0417],[0.0385,0.3462,0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.2692,0.0385],[0.0417,0.125,0.0417,0.0417,0.0417,0.0417,0.0417,0.375,0.0417,0.125,0.0417,0.0417],[0.0714,0.2143,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[3.0,6.0,0.0,1.0,0.0,2.0,6.0,7.0,6.0,1.0,6.0,0.0]},{"family_id":3,"size":10,"members":[20,23,32,37,41,48,58,59,62,63],"kernel":[[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.3889,0.0556],[0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.2143,0.0714,0.0714,0.0714],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.5769,0.0385,0.0385,0.0385,0.0385,0.0385],[0.0312,0.0312,0.0312,0.0312,0.0312,0.0312,0.0312,0.0312,0.6562,0.0312,0.0312,0.0312],[0.0278,0.0278,0.1944,0.0278,0.0278,0.0278,0.0278,0.0278,0.0278,0.1389,0.4167,0.0278],[0.0294,0.0294,0.0294,0.0882,0.0294,0.0294,0.0294,0.6176,0.0294,0.0294,0.0294,0.0294],[0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.3125,0.0625,0.0625,0.0625,0.0625],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[0.0,0.0,3.0,1.0,0.0,7.0,10.0,12.0,11.0,2.0,10.0,0.0]},{"family_id":4,"size":10,"members":[16,17,21,24,28,40,45,47,49,51],"kernel":[[0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.1875,0.0625,0.1875,0.0625,0.0625,0.0625],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.1667,0.2778,0.0556],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0357,0.0357,0.0357,0.0357,0.0357,0.0357,0.6071,0.0357,0.0357,0.0357,0.0357,0.0357],[0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.2143,0.0714,0.0714,0.0714,0.0714,0.0714],[0.1471,0.0294,0.0294,0.0294,0.0294,0.0294,0.0294,0.0294,0.5588,0.0294,0.0294,0.0294],[0.0294,0.0294,0.2059,0.0294,0.0294,0.0294,0.0294,0.0294,0.0294,0.1471,0.3824,0.0294],[0.0312,0.0312,0.0312,0.0312,0.0312,0.0312,0.0312,0.6562,0.0312,0.0312,0.0312,0.0312],[0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.1667,0.0556,0.0556,0.2778,0.0556],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[2.0,0.0,3.0,0.0,8.0,1.0,11.0,11.0,10.0,3.0,10.0,0.0]}],"pairwise_tv_matrix":[[0.0,0.1586983618233618,0.12777512180085707,0.1550512566137566],[0.1586983618233618,0.0,0.1997060843568196,0.22803263933778636],[0.12777512180085707,0.1997060843568196,0.0,0.14660244439656203],[0.1550512566137566,0.22803263933778636,0.14660244439656203,0.0]],"mean_tv":0.16931098472152392},{"model":"qwen3_4b_think","dataset":"hmmt25","problem_id":"hmmt25-15","all_states":["decision_point|early|outer","decision_point|late|core","decision_point|late|outer","decision_point|mid|outer","intermediate|early|outer","intermediate|mid|outer","shared_trunk|early|outer","shared_trunk|late|outer","shared_trunk|mid|outer","weak_basin|late|outer","EOS_correct","EOS_wrong"],"n_correct_runs":26,"n_wrong_runs":36,"n_families":4,"families":[{"family_id":0,"size":8,"members":[0,4,14,15,25,59,60,61],"kernel":[[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.3889,0.0556],[0.05,0.25,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.25,0.05],[0.0625,0.0625,0.1875,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.1875,0.0625,0.0625],[0.0556,0.0556,0.0556,0.2778,0.0556,0.0556,0.0556,0.0556,0.1667,0.0556,0.0556,0.0556],[0.0625,0.0625,0.1875,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.1875,0.0625,0.0625],[0.0417,0.0417,0.0417,0.0417,0.125,0.2083,0.0417,0.0417,0.2083,0.0417,0.125,0.0417],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0556,0.1667,0.2778,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556],[0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.3125,0.0625],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[0.0,3.0,4.0,2.0,3.0,2.0,6.0,0.0,3.0,2.0,8.0,0.0]},{"family_id":1,"size":4,"members":[17,20,33,47],"kernel":[[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.2143,0.0714],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.05,0.05,0.15,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.35,0.05],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[0.0,0.0,1.0,0.0,0.0,0.0,4.0,0.0,0.0,0.0,4.0,0.0]},{"family_id":2,"size":8,"members":[1,6,27,29,34,38,46,63],"kernel":[[0.0714,0.0714,0.0714,0.2143,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714],[0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.0385,0.5769,0.0385],[0.0714,0.2143,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714,0.0714],[0.0625,0.1875,0.1875,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625],[0.1364,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.3182,0.0455,0.1364,0.0455],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0556,0.0556,0.0556,0.1667,0.0556,0.0556,0.0556,0.0556,0.2778,0.0556,0.0556,0.0556],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0455,0.5,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[1.0,7.0,1.0,2.0,5.0,0.0,3.0,0.0,5.0,0.0,8.0,0.0]},{"family_id":4,"size":5,"members":[7,19,49,56,58],"kernel":[[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.3182,0.2273,0.0455],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.3889,0.0556,0.0556,0.0556],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.0625,0.3125,0.0625,0.0625,0.0625],[0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833,0.0833],[0.0455,0.0455,0.5,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455,0.0455],[0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.0556,0.3889,0.0556],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0]],"visits":[0.0,0.0,5.0,0.0,3.0,0.0,2.0,0.0,5.0,3.0,5.0,0.0]}],"pairwise_tv_matrix":[[0.0,0.17607473544973543,0.16949196636696637,0.14850589225589225],[0.17607473544973543,0.0,0.17684977059977058,0.1385431697931698],[0.16949196636696637,0.17684977059977058,0.0,0.18844639157139156],[0.14850589225589225,0.1385431697931698,0.18844639157139156,0.0]],"mean_tv":0.16631865433948767}]};</script><script>(() => {
+ 'use strict';
+ const $=id=>document.getElementById(id), E=window.LensEngine, I=window.LensI18n, T=(key,values)=>I.t(key,values);
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const fmt=n=>Number(n).toLocaleString('en-US');
+ let data, analysis, current, compare, stepIndex=0, selectedNode=null, playTimer=null, caseIndex=0, familyIndex=0, pendingFile=null, isDemo=true, importErrorMessage=null, kernelSelection=null;
+ const demoRuns={'先试再修':'demoRunA','先查再改':'demoRunB','重复后停止':'demoRunC'};
+ const demoLabels={'读取问题':'demoRead','定位函数':'demoLocate','复现错误':'demoReproduce','初版修改':'demoPatchA','测试未通过':'demoTestFail','检查边界':'demoInspectEdge','修正边界':'demoPatchB','验证通过':'demoTestPass','提交结果':'demoSubmit','预算结束':'demoStop'};
+ const runName=id=>isDemo&&demoRuns[id]?T(demoRuns[id]):id;
+ const stateLabel=value=>isDemo&&demoLabels[value.label]?T(demoLabels[value.label]):value.label;
+ const modeName=mode=>T({explicit:'modeExplicit',keys:'modeKeys',action:'modeAction',text:'modeText'}[mode]);
+ const NS='http://www.w3.org/2000/svg';
+ function svgEl(tag,attrs={},text){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(text!=null)e.textContent=text;return e;}
+ function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,3500);}
+ function download(name,text,type){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+ function downloadExample(){download('trajectory-lens-example.json',JSON.stringify(window.LENS_DEMO,null,2),'application/json');}
+ function stop(){clearInterval(playTimer);playTimer=null;$('play-button').textContent=T('play');}
+ function updateExportState(){const limited=analysis.nodes.length>100;$('export-svg').disabled=limited;$('export-svg').setAttribute('aria-disabled',String(limited));$('svg-export-note').hidden=!limited;}
+ function setLanguage(language){I.setLanguage(language);if(pendingFile)$('drop-title').textContent=pendingFile.name;if(importErrorMessage)$('import-error').textContent=T('importError',{message:importErrorMessage});if(data){render();if(!$('released-view').hidden)renderReleased();}$('play-button').textContent=T(playTimer?'pause':'play');}
+ function load(raw,demo=false){const next=raw?.__lensNormalized?raw:E.normalize(raw),nextAnalysis=E.analyze(next);stop();data=next;analysis=nextAnalysis;current=data.runs[0].id;compare=data.runs.length>1?data.runs[1].id:null;stepIndex=0;selectedNode=null;isDemo=demo;$('evidence-details').open=false;setView('workspace');render();}
+ function currentRun(){return data.runs.find(r=>r.id===current);}
+ function metric(id){return analysis.perRun.find(r=>r.id===id);}
+ function path(id){return analysis.runPaths[id]||[];}
+ function nodeIdAt(runId,index){return path(runId)[index];}
+ function setView(view){stop();$('workspace-view').hidden=view!=='workspace';$('released-view').hidden=view!=='released';document.querySelectorAll('[data-view]').forEach(b=>{const active=b.dataset.view===view;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active);});if(view==='released')renderReleased();else if(data)requestAnimationFrame(drawAtlas);}
+ function render(){
+  $('dataset-title').textContent=isDemo?T('demoName'):data.name;$('dataset-description').textContent=isDemo?T('demoDescription'):(data.description||T('fallbackDescription'));
+  $('data-kind').textContent=T(isDemo?'demoKind':'importedKind');$('data-kind').classList.toggle('real',!isDemo);
+  $('run-count').textContent=String(data.runs.length).padStart(2,'0');
+  $('run-list').innerHTML=data.runs.map(r=>`<div class="run-card ${r.id===current?'current':r.id===compare?'compare':''}"><button class="run-select" data-run="${esc(r.id)}" aria-pressed="${r.id===current}"><span class="run-label">${esc(runName(r.id))}<span class="outcome ${esc(r.outcome)}">${T(r.outcome)}</span></span><span class="run-model">${esc(r.model)}</span></button><div class="run-card-bottom"><span>${T('runStats',{steps:r.steps.length,revisits:metric(r.id).revisits})}</span>${r.id!==current?`<button class="compare-button" data-compare="${esc(r.id)}" aria-pressed="${r.id===compare}">${T(r.id===compare?'cancelCompare':'compare')}</button>`:`<span>${T('currentRoute')}</span>`}</div></div>`).join('');
+  document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>{stop();if(b.dataset.run===compare)compare=current;current=b.dataset.run;stepIndex=0;selectedNode=null;render();});
+  document.querySelectorAll('[data-compare]').forEach(b=>b.onclick=()=>{compare=compare===b.dataset.compare?null:b.dataset.compare;render();});
+  const counts=data.matching?.counts||{};
+  const modeText=Object.entries(counts).filter(([,v])=>typeof v==='number'&&v>0).map(([k,v])=>T('modeCount',{mode:modeName(k),n:v})).join(' · ');
+  const notes=[];if(counts.text)notes.push(T('textWarning',{n:counts.text}));if(counts.action)notes.push(T('actionWarning',{n:counts.action}));if(data.matching.modes.length>1)notes.push(T('mixedWarning'));if(!analysis.totals.tokensComplete)notes.push(T('tokenWarning',{known:analysis.totals.knownTokenSteps,total:analysis.totals.steps}));
+  $('matching-note').innerHTML=`<strong>${T('matchingHeading')}</strong>${esc(modeText||T('matchingFallback'))}<div>${T('revisitNote')}</div>${notes.length?`<div class="warning-note">${esc(notes.join(' '))}</div>`:''}`;
+  $('atlas-stat').innerHTML=T('atlasStats',{states:analysis.nodes.length,edges:analysis.edges.length});updateExportState();
+  renderComparison();renderReplay();drawAtlas();renderEvidence();
+ }
+ function renderComparison(){
+  const m=metric(current),n=compare?metric(compare):null;
+  if(!compare){$('comparison').innerHTML='<span>'+T('singleRunLine',{steps:m.steps,states:m.uniqueStates,revisits:m.revisits})+'</span>';return;}
+  const o=analysis.overlaps.find(o=>(o.a===current&&o.b===compare)||(o.b===current&&o.a===compare)),d=E.firstDivergence(data,current,compare);
+  $('comparison').innerHTML='<span class="comparison-runs">'+esc(runName(current))+' / '+esc(runName(compare))+'</span><span>'+T(d.identical?'comparisonIdentical':'comparisonLine',{overlap:(100*o.jaccard).toFixed(0),step:d.index+1,a:m.revisits,b:n.revisits})+'</span>';
+ }
+ function layout(nodes,width,height){
+  const columns=width<480?3:width<650?4:5, groups=Array.from({length:columns},()=>[]);
+  nodes.forEach(n=>groups[Math.max(0,Math.min(columns-1,Math.round(n.progress*(columns-1))))].push(n));
+  const biggest=Math.max(...groups.map(g=>g.length),1), h=Math.max(height,biggest*77+65),margin=64;
+  const positions=new Map();groups.forEach((g,col)=>{g.sort((a,b)=>b.runIds.length-a.runIds.length||a.label.localeCompare(b.label));g.forEach((n,i)=>positions.set(n.id,{x:margin+col*(width-2*margin)/(columns-1),y:h/2+(i-(g.length-1)/2)*77}));});
+  return {positions,height:h,nodeWidth:Math.min(110,(width-2*margin)/(columns-1)-14)};
+ }
+ function fitLabel(value,width,fontSize,family='Segoe UI, Microsoft YaHei, sans-serif'){const canvas=fitLabel.canvas||(fitLabel.canvas=document.createElement('canvas')),context=canvas.getContext('2d'),chars=Array.from(value);context.font=fontSize+'px '+family;if(context.measureText(value).width<=width)return value;while(chars.length&&context.measureText(chars.join('')+'…').width>width)chars.pop();return chars.join('')+'…';}
+ function edgePath(a,b,source,target,width=106,bounds){
+  const x=value=>bounds?Math.max(6,Math.min(bounds-6,value)):value;
+  if(source===target)return `M ${x(a.x+width/3)} ${a.y-12} C ${x(a.x+width/2+35)} ${a.y-67}, ${x(a.x-width/2-35)} ${a.y-67}, ${x(a.x-width/3)} ${a.y-12}`;
+  const dx=b.x-a.x,offset=width/2+3;
+  if(Math.abs(dx)<30)return `M ${x(a.x+offset-8)} ${a.y} C ${x(a.x+offset+42)} ${a.y}, ${x(b.x+offset+42)} ${b.y}, ${x(b.x+offset-8)} ${b.y}`;
+  const sx=a.x+(dx>0?offset:-offset),tx=b.x+(dx>0?-offset:offset), bend=Math.max(35,Math.abs(tx-sx)/2);
+  if(dx<0)return `M ${x(sx)} ${a.y-12} C ${x(sx-35)} ${a.y-68}, ${x(tx+35)} ${b.y-68}, ${x(tx)} ${b.y-12}`;
+  return `M ${x(sx)} ${a.y} C ${x(sx+bend)} ${a.y}, ${x(tx-bend)} ${b.y}, ${x(tx)} ${b.y}`;
+ }
+ function defs(svg){const d=svgEl('defs');[['teal','#8f1d2c'],['violet','#52657f'],['shared','#383833'],['dim','#b6b0a5']].forEach(([id,color])=>{const m=svgEl('marker',{id:'arrow-'+id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:5,markerHeight:5,orient:'auto-start-reverse'});m.append(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:color}));d.append(m);});svg.append(d);}
+ function drawAtlas(){
+  if(!data||$('workspace-view').hidden)return;
+  const svg=$('atlas'),width=$('graph-wrap').clientWidth||700;
+  svg.replaceChildren();defs(svg);
+  const nodes=analysis.nodes;
+  if(nodes.length>100){$('graph-empty').hidden=false;$('graph-empty').textContent=T('graphLimit',{n:nodes.length});$('graph-wrap').style.height='335px';svg.setAttribute('viewBox',`0 0 ${width} 335`);return;}
+  $('graph-empty').hidden=true;
+  const l=layout(nodes,width,335);$('graph-wrap').style.height=l.height+'px';svg.setAttribute('viewBox',`0 0 ${width} ${l.height}`);
+  svg.append(svgEl('title',{},T('graphTitle',{n:nodes.length,edges:analysis.edges.length,run:runName(current)})));
+  const cur=new Set(path(current)),cmp=new Set(compare?path(compare):[]),activeId=selectedNode||nodeIdAt(current,stepIndex);
+  const edgeGroup=svgEl('g');
+  const routeEdges=id=>new Set((path(id)||[]).slice(1).map((x,i)=>path(id)[i]+'\u0000'+x));
+  const currentEdges=routeEdges(current),compareEdges=compare?routeEdges(compare):new Set();
+  analysis.edges.slice().sort((a,b)=>Number(currentEdges.has(a.source+'\u0000'+a.target))-Number(currentEdges.has(b.source+'\u0000'+b.target))).forEach(e=>{
+   const key=e.source+'\u0000'+e.target,ca=currentEdges.has(key),cb=compareEdges.has(key),kind=ca&&cb?'shared':ca?'teal':cb?'violet':'dim',a=l.positions.get(e.source),b=l.positions.get(e.target);if(!a||!b)return;
+   const p=svgEl('path',{d:edgePath(a,b,e.source,e.target,l.nodeWidth,width),fill:'none',stroke:{teal:'#8f1d2c',violet:'#52657f',shared:'#383833',dim:'#b6b0a5'}[kind],'stroke-width':ca||cb?2.2:1.2,opacity:ca||cb?.87:.42,'marker-end':'url(#arrow-'+kind+')'});
+   p.append(svgEl('title',{},T('edgeTitle',{a:stateLabel(nodes.find(n=>n.id===e.source)),b:stateLabel(nodes.find(n=>n.id===e.target)),n:e.count})));edgeGroup.append(p);
+  });svg.append(edgeGroup);
+  nodes.forEach(n=>{const p=l.positions.get(n.id),a=cur.has(n.id),b=cmp.has(n.id),color=a&&b?'#383833':a?'#8f1d2c':b?'#52657f':'#918a7d',fill=a&&b?'#eeece5':a?'#f5e9e9':b?'#eaf0f5':'#f5f3ed',g=svgEl('g',{class:'graph-node',role:'button',tabindex:0,'aria-label':T('nodeAria',{label:stateLabel(n),visits:n.visits,runs:n.runIds.length}),transform:`translate(${p.x},${p.y})`});
+   if(n.id===activeId)g.append(svgEl('rect',{x:-l.nodeWidth/2-4,y:-27,width:l.nodeWidth+8,height:54,rx:1,fill:'none',stroke:color,'stroke-width':1,opacity:.55}));
+   g.append(svgEl('rect',{x:-l.nodeWidth/2,y:-23,width:l.nodeWidth,height:46,rx:1,fill,stroke:color,'stroke-width':n.id===activeId?2:1}));
+   const fullLabel=stateLabel(n),label=fitLabel(fullLabel,l.nodeWidth-12,width<420?11:12);
+   g.append(svgEl('text',{'text-anchor':'middle',y:-3,fill:a||b?'#191918':'#6b675f','font-family':'Segoe UI, Microsoft YaHei, sans-serif','font-size':width<420?11:12},label));
+   g.append(svgEl('text',{'text-anchor':'middle',y:13,fill:color,'font-family':'Consolas, monospace','font-size':10},fitLabel(T('nodeMeta',{runs:n.runIds.length,visits:n.visits}),l.nodeWidth-10,10,'Consolas, monospace')));
+   g.append(svgEl('title',{},T('nodeAria',{label:stateLabel(n),visits:n.visits,runs:n.runIds.length})));
+   const choose=()=>{stop();$('evidence-details').open=true;selectedNode=n.id;const i=path(current).indexOf(n.id);if(i>=0)stepIndex=i;drawAtlas();renderReplay();renderEvidence();};g.onclick=choose;g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}};svg.append(g);
+  });
+  svg.append(svgEl('text',{x:18,y:l.height-15,fill:'#6b675f','font-family':'Consolas, monospace','font-size':10},T('early')));
+  svg.append(svgEl('text',{x:width-18,y:l.height-15,'text-anchor':'end',fill:'#6b675f','font-family':'Consolas, monospace','font-size':10},T('lateProgress')));
+ }
+ function renderReplay(){
+  const run=currentRun(),m=metric(current);stepIndex=Math.min(Math.max(stepIndex,0),run.steps.length-1);
+  $('replay-name').textContent=runName(run.id);$('step-count').textContent=`${stepIndex+1} / ${run.steps.length}`;$('step-slider').max=run.steps.length-1;$('step-slider').value=stepIndex;
+  $('prev-step').disabled=stepIndex===0;$('next-step').disabled=stepIndex===run.steps.length-1;
+  const seen=new Set();$('step-track').innerHTML=run.steps.map((s,i)=>{const revisit=seen.has(s.state);seen.add(s.state);return `<button class="step-cell ${revisit?'revisit':''} ${i===stepIndex?'active':''}" data-step="${i}" aria-pressed="${i===stepIndex}"><span class="step-number">${String(i+1).padStart(2,'0')}${revisit?T('revisitMarker'):''}</span>${esc(stateLabel(s))}</button>`;}).join('');
+  $('step-track').querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{stop();selectStep(+b.dataset.step);});
+  $('run-metrics').innerHTML=`<span><b>${m.steps}</b>${T('stepsMetric')}</span><span><b>${m.uniqueStates}</b>${T('statesMetric')}</span><span><b>${(100*m.revisitRate).toFixed(0)}%</b>${T('revisitRate')}</span><span><b>${m.totalTokens==null?'—':fmt(m.totalTokens)}</b>tokens ${m.totalTokens!=null&&!m.tokensComplete?T('partialTokens'):m.totalTokens==null?T('missingTokens'):''}</span><span class="explain">${T(isDemo?'demoCosts':'importedCosts')}</span>`;
+ }
+ function selectStep(i){$('evidence-details').open=true;stepIndex=Math.max(0,Math.min(i,currentRun().steps.length-1));selectedNode=null;renderReplay();drawAtlas();renderEvidence();const cell=$('step-track').querySelector('.active');if(cell){const track=$('step-track');if(cell.offsetLeft<track.scrollLeft||cell.offsetLeft+cell.offsetWidth>track.scrollLeft+track.clientWidth)track.scrollTo({left:cell.offsetLeft-track.offsetLeft-15,behavior:'smooth'});}}
+ function renderEvidence(){
+  const id=selectedNode||nodeIdAt(current,stepIndex),node=analysis.nodes.find(n=>n.id===id);if(!node)return;
+  const found=[];data.runs.forEach(r=>path(r.id).forEach((n,i)=>{if(n===id)found.push({r,i,s:r.steps[i]});}));
+  const entry=found.find(v=>v.r.id===current&&v.i===stepIndex)||found[0];
+  $('evidence-index').textContent=T('records',{n:found.length});
+  const cleanState=entry.s.state.replace(/^explicit:(string|number):/,'').replace(/^(keys|text|action):/,'');
+  $('evidence-content').innerHTML=`<h3 class="evidence-title">${esc(stateLabel(node))}</h3><div class="state-chip">${esc(cleanState.length>140?cleanState.slice(0,140)+'…':cleanState)}</div><p class="evidence-sub">${T('evidenceStep',{run:esc(runName(entry.r.id)),step:entry.i+1})}${entry.s.tokens!=null?` · ${fmt(entry.s.tokens)} tokens`:''}</p><p class="raw-label">${T('originalRecord')}</p><div class="raw-text">${esc(entry.s.text||T('missingText'))}</div><div class="occurrences"><p class="small muted">${T('occurrences')}</p>${found.slice(0,60).map(v=>`<button data-occ-run="${esc(v.r.id)}" data-occ-step="${v.i}" class="${v.r.id===entry.r.id&&v.i===entry.i?'active':''}">${esc(runName(v.r.id))} · ${v.i+1}</button>`).join('')}${found.length>60?`<p class="small muted">${T('occurrenceLimit',{n:found.length})}</p>`:''}</div>`;
+  document.querySelectorAll('[data-occ-run]').forEach(b=>b.onclick=()=>{stop();if(b.dataset.occRun!==current){compare=current;current=b.dataset.occRun;}stepIndex=+b.dataset.occStep;selectedNode=null;render();});
+ }
+ function shortState(s){if(s==='EOS_correct')return [T('eosCorrect'),T('terminalCorrect')];if(s==='EOS_wrong')return [T('eosWrong'),T('terminalWrong')];const [role,phase,core]=s.split('|');return [role.replaceAll('_',' '),`${phase} · ${core}`];}
+ function renderReleased(){
+  const rel=window.LENS_RELEASED;if(!rel){toast(T('missingRelease'));return;}
+  const c=rel.cases[caseIndex],f=c.families[familyIndex],N=c.all_states.length;
+  $('case-select').innerHTML=rel.cases.map((c,i)=>`<option value="${i}" ${i===caseIndex?'selected':''}>${esc(c.problem_id)} · ${esc(c.model)}</option>`).join('');
+  $('family-select').innerHTML=c.families.map((f,i)=>`<option value="${i}" ${i===familyIndex?'selected':''}>${T('familyOption',{id:f.family_id,n:f.size})}</option>`).join('');
+  $('threshold-value').textContent=(+$('threshold').value).toFixed(2);
+  const covered=c.families.reduce((n,f)=>n+f.size,0);
+  $('release-counts').innerHTML=T('fullCase',{correct:c.n_correct_runs,wrong:c.n_wrong_runs})+'<br>'+T('familyCoverage',{covered,correct:c.n_correct_runs});
+  $('family-summary').innerHTML=`<div class="family-big">${T('familyLabel',{id:f.family_id})}</div><p class="family-caption">${T('familyCorrectRuns',{n:f.size})}<br>${T('visitedStates',{n:f.visits.filter(v=>v>0).length})}</p>`;
+  const max=Math.max(...f.visits,1);$('visits-chart').innerHTML=f.visits.map((v,i)=>({v,s:c.all_states[i]})).filter(v=>v.v>0).sort((a,b)=>b.v-a.v).map(v=>`<div class="visit-row"><span>${esc(shortState(v.s).join(' / '))}</span><div class="bar"><span style="width:${v.v/max*100}%"></span></div><span>${v.v}</span></div>`).join('');
+  $('release-note').textContent=T('releaseVisits',{members:f.members.join(', ')});
+  $('tv-summary').innerHTML=`<div class="tv-card"><span>${T('meanTV')}</span><strong>${c.mean_tv.toFixed(3)}</strong><p class="small muted">${T('tvNote')}</p>${c.families.map((g,i)=>i===familyIndex?'':`<div class="small">${T('familyLabel',{id:f.family_id})} × ${g.family_id}: ${c.pairwise_tv_matrix[familyIndex][i].toFixed(3)}</div>`).join('')}</div>`;
+  $('provenance').innerHTML=`<p>${T('provenance')} <code>${esc(rel.provenance.commit)}</code></p><p>${rel.provenance.files.map(p=>`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a>`).join('')}</p>`;
+  $('matrix').innerHTML=`<table class="matrix-table"><caption class="sr-only">${T('matrixCaption',{id:f.family_id})}</caption><thead><tr><th>${T('matrixAxes')}</th>${c.all_states.map(s=>`<th scope="col">${esc(s.replaceAll('|',' / '))}</th>`).join('')}</tr></thead><tbody>${f.kernel.map((row,i)=>`<tr class="${f.visits[i]===0?'zero-row':''}"><th scope="row">${esc(c.all_states[i].replaceAll('|',' / '))}</th>${row.map((v,j)=>`<td><button data-matrix-i="${i}" data-matrix-j="${j}" style="background:rgba(143,29,44,${.025+v*.23})" aria-label="${T('matrixAria',{a:esc(c.all_states[i]),b:esc(c.all_states[j]),p:v.toFixed(4)})}">${v.toFixed(2)}</button></td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  document.querySelectorAll('[data-matrix-i]').forEach(b=>b.onclick=()=>{kernelDetail(+b.dataset.matrixI,+b.dataset.matrixJ);$('kernel-detail').scrollIntoView({behavior:'smooth',block:'nearest'});});
+  if(kernelSelection)kernelDetail(...kernelSelection);else $('kernel-detail').textContent=T('selectKernel');drawKernel();
+ }
+ function kernelDetail(i,j){kernelSelection=[i,j];const c=window.LENS_RELEASED.cases[caseIndex],f=c.families[familyIndex],eos=c.all_states[i].startsWith('EOS'),base=.5/(f.visits[i]+.5*c.all_states.length);$('kernel-detail').innerHTML=j==null?`<strong>${esc(c.all_states[i])}</strong> · ${T('visitsCount',{n:f.visits[i]})} · ${eos?T('forcedSelfLoop'):f.visits[i]===0?T('unvisitedSmoothing'):T('smoothingBaseline',{p:base.toFixed(4)})}`:`<strong>${esc(c.all_states[i])}</strong> → <strong>${esc(c.all_states[j])}</strong> · P = ${f.kernel[i][j].toFixed(4)} · ${eos?T('forcedRow'):T('sourceVisits',{n:f.visits[i]})+' · '+T('smoothingBaseline',{p:base.toFixed(4)})}${!eos&&f.kernel[i][j]<=base+.0001?' · '+T('smoothingOnly'):''}`;}
+ function drawKernel(){
+  if($('released-view').hidden||!window.LENS_RELEASED)return;
+  const c=window.LENS_RELEASED.cases[caseIndex],f=c.families[familyIndex],svg=$('kernel-graph'),w=svg.parentElement.clientWidth||800;
+  const active=c.all_states.map((s,i)=>({s,i,visits:f.visits[i]})).filter(v=>v.visits>0),groups=[[],[],[],[]];
+  active.forEach(v=>{const g=v.s.startsWith('EOS')?3:v.s.includes('|early|')?0:v.s.includes('|mid|')?1:2;groups[g].push(v);});
+  const h=Math.max(210,Math.max(...groups.map(g=>g.length),1)*82+70);
+  svg.parentElement.style.height=h+'px';svg.replaceChildren();defs(svg);svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.append(svgEl('title',{},T('kernelTitle',{problem:c.problem_id,id:f.family_id})));
+  const points=new Map(),nw=Math.min(126,(w-30)/4-12),margin=nw/2+15;
+  groups.forEach((g,k)=>g.forEach((v,i)=>points.set(v.i,{x:margin+k*(w-2*margin)/3,y:h/2+(i-(g.length-1)/2)*82})));
+  const thresh=+$('threshold').value;
+  f.kernel.forEach((row,i)=>{if(!points.has(i)||c.all_states[i].startsWith('EOS'))return;const base=.5/(f.visits[i]+.5*c.all_states.length);row.forEach((p,j)=>{if(!points.has(j)||p<thresh||p<=base+.0001)return;const pathEl=svgEl('path',{d:edgePath(points.get(i),points.get(j),i,j,nw,w),fill:'none',stroke:'#8f1d2c','stroke-width':1.1+p*5,opacity:.45+p*.45,'marker-end':'url(#arrow-teal)'});pathEl.append(svgEl('title',{},`${c.all_states[i]} → ${c.all_states[j]}: P=${p.toFixed(4)}`));svg.append(pathEl);});});
+  active.forEach(v=>{const pos=points.get(v.i),[a,b]=shortState(v.s),g=svgEl('g',{class:'graph-node',role:'button',tabindex:0,transform:`translate(${pos.x},${pos.y})`,'aria-label':v.s+', '+T('visitsCount',{n:v.visits})}),core=v.s.includes('|core'),eos=v.s.startsWith('EOS'),color=core?'#52657f':eos?'#383833':'#8f1d2c';
+   g.append(svgEl('rect',{x:-nw/2,y:-30,width:nw,height:60,rx:1,fill:core?'#eaf0f5':'#f5f2eb',stroke:color}));
+   let lines=a.length>17?a.split(' '):[a];if(w<500&&a.includes(' '))lines=a.split(' ');
+   lines.slice(0,2).forEach((s,i)=>g.append(svgEl('text',{'text-anchor':'middle',y:lines.length>1?-12+i*13:-7,fill:'#191918','font-family':'Consolas, monospace','font-size':w<500?10:12},fitLabel(s,nw-10,w<500?10:12,'Consolas, monospace'))));
+   g.append(svgEl('text',{'text-anchor':'middle',y:14,fill:color,'font-family':'Consolas, monospace','font-size':w<500?8:10},fitLabel(b,nw-10,w<500?8:10,'Consolas, monospace')));g.append(svgEl('text',{'text-anchor':'middle',y:43,fill:'#6b675f','font-family':'Consolas, monospace','font-size':10},fitLabel(T('visitsCount',{n:v.visits}),nw-6,10,'Consolas, monospace')));
+   const select=()=>kernelDetail(v.i);g.onclick=select;g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}};svg.append(g);
+  });
+  ['early','mid','late','eos'].forEach((s,k)=>svg.append(svgEl('text',{x:margin+k*(w-2*margin)/3,y:20,'text-anchor':'middle',fill:'#6b675f','font-family':'Consolas, monospace','font-size':10},T(s))));
+ }
+ async function readFile(file){if(file.size>10*1024*1024)throw new Error(T('fileTooLarge'));pendingFile=file;$('import-text').value=await file.text();$('drop-title').textContent=file.name;}
+ function showImportError(e){importErrorMessage=e.message||String(e);$('import-error').textContent=T('importError',{message:importErrorMessage});$('import-error').hidden=false;}
+ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+ document.querySelectorAll('.close-dialog').forEach(b=>b.onclick=()=>b.closest('dialog').close());
+ document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}}));
+ $('language-button').onclick=()=>setLanguage(I.getLanguage()==='en'?'zh':'en');
+ $('import-button').onclick=()=>{stop();importErrorMessage=null;$('import-error').hidden=true;$('import-dialog').showModal();};
+ $('method-button').onclick=()=>{stop();$('method-dialog').showModal();};$('export-button').onclick=()=>{stop();$('export-dialog').showModal();};
+ $('download-example').onclick=downloadExample;$('method-example').onclick=downloadExample;
+ $('reset-demo').onclick=()=>load(window.LENS_DEMO,true);
+ $('file-input').onchange=async e=>{if(e.target.files[0])try{await readFile(e.target.files[0]);}catch(e){showImportError(e);}};
+ const drop=$('drop-zone');drop.ondragover=e=>{e.preventDefault();drop.classList.add('dragging');};drop.ondragleave=()=>drop.classList.remove('dragging');drop.ondrop=async e=>{e.preventDefault();drop.classList.remove('dragging');if(e.dataTransfer.files[0])try{await readFile(e.dataTransfer.files[0]);}catch(e){showImportError(e);}};
+ $('import-confirm').onclick=()=>{try{const txt=$('import-text').value;if(new Blob([txt]).size>10*1024*1024)throw new Error(T('textTooLarge'));const imported=E.parse(txt,pendingFile?.name||'pasted.json');load(imported,false);$('import-dialog').close();$('import-text').value='';pendingFile=null;importErrorMessage=null;$('file-input').value='';$('drop-title').textContent=T('chooseFile');toast(T('importedToast',{n:data.runs.length}));}catch(e){showImportError(e);}};
+ $('prev-step').onclick=()=>{stop();selectStep(stepIndex-1);};$('next-step').onclick=()=>{stop();selectStep(stepIndex+1);};$('step-slider').oninput=e=>{stop();selectStep(+e.target.value);};
+ $('play-button').onclick=()=>{if(playTimer){stop();return;}if(stepIndex>=currentRun().steps.length-1)selectStep(0);$('play-button').textContent=T('pause');playTimer=setInterval(()=>{if(stepIndex>=currentRun().steps.length-1){stop();return;}selectStep(stepIndex+1);},1100);};
+ $('case-select').onchange=e=>{caseIndex=+e.target.value;familyIndex=0;kernelSelection=null;renderReleased();};$('family-select').onchange=e=>{familyIndex=+e.target.value;kernelSelection=null;renderReleased();};$('threshold').oninput=()=>{$('threshold-value').textContent=(+$('threshold').value).toFixed(2);drawKernel();};
+ $('export-markdown').onclick=()=>{let md=E.exportMarkdown(data,analysis);md+='\n\n## Dataset provenance\n\n'+(isDemo?'This is a manually constructed teaching example. Its actions, outcomes, state labels and costs are illustrative, not published experiment results.':'User-imported records. Outcomes and numeric fields are supplied by the input, not inferred by this tool.');download('trajectory-lens-report.md',md,'text/markdown;charset=utf-8');$('export-dialog').close();toast(T('reportToast'));};
+ $('export-json').onclick=()=>{download('trajectory-lens-data.json',E.exportJSON(data),'application/json');$('export-dialog').close();};
+ $('export-svg').onclick=()=>{if(analysis.nodes.length>100){toast(T('svgUnavailable'));return;}const cloned=$('atlas').cloneNode(true);cloned.setAttribute('xmlns',NS);const bg=svgEl('rect',{x:0,y:0,width:'100%',height:'100%',fill:'#fffefa'});cloned.insertBefore(bg,cloned.firstChild);download('trajectory-lens-atlas.svg',new XMLSerializer().serializeToString(cloned),'image/svg+xml');$('export-dialog').close();};
+ document.addEventListener('keydown',e=>{if($('workspace-view').hidden||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT','BUTTON','A'].includes(e.target.tagName)||e.target.getAttribute('role')==='button')return;if(e.key==='ArrowRight'){e.preventDefault();stop();selectStep(stepIndex+1);}if(e.key==='ArrowLeft'){e.preventDefault();stop();selectStep(stepIndex-1);}});
+ let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{drawAtlas();drawKernel();},120);});
+ I.apply();
+ if(!E){$('dataset-title').textContent=T('missingEngine');return;}
+ load(window.LENS_DEMO,true);
+ window.LensApp={getData:()=>data,getAnalysis:()=>analysis,load:raw=>load(raw,false),getLanguage:()=>I.getLanguage(),setLanguage,selectRun:id=>{if(!data.runs.some(r=>r.id===id))throw new Error('Unknown run');stop();if(id===compare)compare=current;current=id;stepIndex=0;selectedNode=null;render();},selectStep,setView};
+ if(document.modelContext?.registerTool){
+  const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
+  const register=t=>{try{Promise.resolve(document.modelContext.registerTool(t,{signal:lifecycle.signal})).catch(()=>{});}catch{}};
+  register({name:'read_trajectory_summary',title:'Read trajectory summary',description:'Read exact-state metrics and run IDs for the currently loaded dataset. Does not return original trace text.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:input=>{if(!input||typeof input!=='object'||Object.keys(input).length)throw new Error('Expected an empty object.');return {name:data.name,matching:data.matching,totals:analysis.totals,runs:analysis.perRun,overlaps:analysis.overlaps.map(({a,b,jaccard,intersection,union})=>({a,b,jaccard,intersection,union}))};}});
+  register({name:'navigate_trajectory_step',title:'Inspect a trajectory step',description:'Select a run and step in the visible workspace and display its original record. Step is one-based.',inputSchema:{type:'object',properties:{run_id:{type:'string'},step:{type:'integer',minimum:1}},required:['run_id','step'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:true},execute:input=>{if(!input||typeof input!=='object'||Object.keys(input).some(k=>!['run_id','step'].includes(k)))throw new Error('Expected run_id and step only.');const r=data.runs.find(r=>r.id===input.run_id);if(!r||!Number.isInteger(input.step)||input.step<1||input.step>r.steps.length)throw new Error('Unknown run or step outside the run.');stop();if(current!==r.id){compare=current;current=r.id;}stepIndex=input.step-1;selectedNode=null;setView('workspace');render();return {run_id:current,step:input.step,label:r.steps[stepIndex].label,record:r.steps[stepIndex].text};}});
+ }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+# Preserve source, offline bundles, and archived originals byte-for-byte.
+* -text whitespace=trailing-space,space-before-tab,cr-at-eol

@@ -1,0 +1,1481 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Inspect raw agent tool calls, paired outputs, repeated invocations, and observable TraceGraph signatures in your browser.">
+  <title>Trajectory Lens</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20role%3D%22img%22%20aria-labelledby%3D%22title%22%3E%0A%20%20%3Ctitle%3EJN%3C%2Ftitle%3E%0A%20%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2212%22%20fill%3D%22%23191918%22%2F%3E%0A%20%20%3Cpath%20d%3D%22M14%2016h8v22.5c0%205.3%202.2%208%206.6%208%204.5%200%206.7-2.7%206.7-8V16h8v22.8c0%2010.3-5%2015.2-14.7%2015.2S14%2049.1%2014%2038.8V16Z%22%20fill%3D%22%23fffefa%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2249%22%20cy%3D%2215%22%20r%3D%225%22%20fill%3D%22%238f1d2c%22%2F%3E%0A%3C%2Fsvg%3E%0A" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <style>:root {
+    --font-display: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --color-bg: #f7f5ef;
+    --color-bg-raised: #fffefa;
+    --color-bg-nav: rgba(247, 245, 239, 0.9);
+    --color-text: #191918;
+    --color-text-secondary: #51504c;
+    --color-text-muted: #6b675f;
+    --color-accent: #8f1d2c;
+    --color-accent-hover: #68131f;
+    --color-accent-soft: rgba(143, 29, 44, 0.07);
+    --color-border: #dcd7cd;
+    --color-border-light: #e9e5dd;
+    --shadow-sm: 0 1px 2px rgba(28, 24, 18, 0.04), 0 8px 24px rgba(28, 24, 18, 0.04);
+    --shadow-md: 0 2px 4px rgba(28, 24, 18, 0.05), 0 18px 48px rgba(28, 24, 18, 0.08);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-fast: 180ms ease;
+    --transition-normal: 360ms var(--ease-out);
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) var(--color-bg);
+}
+
+body {
+    min-height: 100vh;
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--color-text);
+    background: var(--color-bg);
+}
+
+::selection {
+    color: var(--color-text);
+    background: rgba(143, 29, 44, 0.14);
+}
+
+a {
+    color: var(--color-accent);
+    text-decoration: none;
+    text-underline-offset: 3px;
+    transition: color var(--transition-fast);
+}
+
+a:hover { color: var(--color-accent-hover); }
+
+img { max-width: 100%; }
+
+.skip-link {
+    position: fixed;
+    top: 8px;
+    left: 16px;
+    z-index: 200;
+    padding: 10px 16px;
+    background: var(--color-text);
+    color: #fff;
+    transform: translateY(-160%);
+}
+
+.skip-link:focus { transform: translateY(0); color: #fff; }
+main[id] { scroll-margin-top: 86px; }
+
+button, a { -webkit-tap-highlight-color: transparent; }
+
+:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 4px;
+    border-radius: 2px;
+}
+
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid rgba(220, 215, 205, 0.8);
+    background: var(--color-bg-nav);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.nav-container {
+    width: min(1120px, calc(100% - 64px));
+    height: 68px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nav-brand {
+    font-family: var(--font-display);
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--color-text);
+}
+
+.nav-brand span { color: var(--color-accent); }
+.nav-brand:hover { color: var(--color-text); }
+
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.nav-link {
+    position: relative;
+    padding: 23px 0 20px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--color-text-secondary);
+}
+
+.nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform var(--transition-fast);
+}
+
+.nav-link:hover,
+.nav-link.active { color: var(--color-text); }
+
+.nav-link:hover::after,
+.nav-link.active::after {
+    transform: scaleX(1);
+    transform-origin: left;
+}
+
+.nav-link-cv { color: var(--color-accent); }
+
+.reveal,
+html.js .reveal,
+.reveal.revealed {
+    opacity: 1;
+    transform: none;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { border-radius: 99px; background: var(--color-border); }
+
+@media (max-width: 640px) {
+    .nav-container {
+        width: min(100% - 32px, 1120px);
+        height: 60px;
+    }
+
+    .nav-links { gap: 16px; }
+    .nav-link { padding: 20px 0 17px; font-size: 11.5px; }
+    .nav-brand { font-size: 22px; }
+}
+
+@media (max-width: 360px) {
+    .nav-links { gap: 12px; }
+    .nav-link { font-size: 11px; }
+}
+
+@media (max-width: 430px) {
+    .nav-link-cv { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    .reveal { opacity: 1 !important; transform: none !important; }
+}
+
+@media print {
+    .navbar { display: none; }
+    body { background: #fff; }
+    .reveal { opacity: 1 !important; transform: none !important; }
+    a { color: #000; }
+}
+</style>
+  <style>:root{color-scheme:light;--paper:#f7f5f0;--ink:#282722;--soft:#716e65;--line:#dcd8ce;--accent:#7c2d3a;--accent-soft:#f1e7e7;--green:#3e6354;--green-soft:#eaf0e9;--amber:#8a6332;--amber-soft:#f4ede1;--white:#fffdf8;--body:'DM Sans','Microsoft YaHei',system-ui,sans-serif;--serif:'Newsreader',Georgia,serif}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.65 var(--body)}button,input,select,textarea{font:inherit}button,a{touch-action:manipulation}button{cursor:pointer;border:1px solid var(--line);border-radius:4px;padding:8px 15px;background:transparent;color:var(--ink)}button:hover{border-color:var(--accent);background:#f1eee6}button:disabled{cursor:default;opacity:.4}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}h1,h2,h3,p{margin:0}h1,h2,h3{font-family:var(--serif);font-weight:500;line-height:1.2}h1{font-size:clamp(30px,3.4vw,43px);letter-spacing:-.035em}h2{font-size:25px}h3{font-size:21px}.primary{background:var(--accent);color:#fff;border-color:var(--accent);white-space:nowrap}.primary:hover{background:#692432;color:white}.secondary{background:var(--white)}.plain{border:0;padding:4px 0}.text-link{border:0;padding:2px 0;color:var(--accent);background:transparent;font-size:12px}.text-link:hover{background:transparent;text-decoration:underline}.small{font-size:12px}.muted{color:var(--soft)}.mono{font-family:Consolas,monospace;font-size:11px}.kicker{color:var(--accent);font-size:11px;letter-spacing:.08em;margin-bottom:9px}.site-header{max-width:1480px;margin:auto;padding:24px 40px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.wordmark{color:var(--ink);font-family:var(--serif);font-size:25px;white-space:nowrap;letter-spacing:-.03em}.wordmark span{color:var(--accent)}.wordmark:hover{text-decoration:none}.wordmark small{font:10px var(--body);color:var(--soft);letter-spacing:0;margin-left:8px}.site-header nav{display:flex;align-items:center;gap:23px;font-size:12px}.language{font-size:11px;padding:4px 8px;background:var(--white)}main{max-width:1480px;padding:37px 40px 25px;margin:auto}.intro{margin-bottom:25px}.intro-row{display:flex;align-items:center;justify-content:space-between;gap:24px}.lead{font-size:14px;color:var(--soft);margin-top:12px;max-width:750px}.intro-row>.primary{padding:10px 21px}.dataset-line{display:flex;align-items:center;gap:13px;padding:13px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:13px}.dataset-line strong{font-weight:500;overflow-wrap:anywhere}.dataset-badge{font-size:10px;padding:2px 6px;border:1px solid #cdb988;color:var(--amber);white-space:nowrap}.dataset-badge.imported{color:var(--green);border-color:#aac0af}.local-note{font-size:11px;color:var(--soft);margin-left:auto}.run-toolbar{display:flex;align-items:flex-end;gap:18px;padding:19px 0 13px}.run-toolbar>label{display:flex;flex-direction:column;gap:5px;min-width:180px;max-width:260px}.run-toolbar label>span{font-size:11px;color:var(--soft)}select{border:1px solid var(--line);border-radius:3px;background:var(--white);color:var(--ink);padding:8px 28px 8px 10px;max-width:100%}.run-metrics{display:flex;align-items:center;gap:23px;margin-left:auto;padding-bottom:4px;font-size:11px;color:var(--soft)}.run-metrics b{display:block;color:var(--ink);font:21px/1.3 var(--serif)}.source-summary{display:flex;gap:17px;flex-wrap:wrap;font-size:11px;color:var(--soft);margin:0 0 16px}.source-summary strong{font-weight:500;color:var(--ink)}.warnings{font-size:12px;color:var(--amber);border-left:2px solid #c7a26e;padding:8px 14px;margin:12px 0 19px;background:#f7f0e5}.warnings summary{cursor:pointer}.warnings p{margin-top:8px}.comparison{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:15px 0;margin:0 0 23px}.comparison-top{display:flex;align-items:baseline;gap:22px;flex-wrap:wrap}.comparison-top h3{font-size:23px;margin-right:auto}.comparison-stat{font-size:11px;color:var(--soft)}.comparison-stat b{font-weight:500;color:var(--ink);font-size:14px;margin-right:5px}.comparison-note{font-size:12px;color:var(--soft);margin-top:9px}.comparison-difference{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:13px}.comparison-difference button{padding:11px 13px;text-align:left;background:var(--white);overflow:hidden}.comparison-difference button span{display:block;font-size:10px;color:var(--soft);margin-bottom:4px}.comparison-difference button code{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.work-grid{display:grid;grid-template-columns:minmax(0,1.14fr) minmax(350px,1fr);gap:37px}.timeline-panel{min-width:0}.panel-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:8px}.view-buttons{display:flex;gap:6px}.view-buttons button{font-size:11px;border:0;padding:5px 8px}.view-buttons button.active{color:var(--accent);background:var(--accent-soft)}.filter-row{display:flex;align-items:center;gap:13px;justify-content:space-between;border-bottom:1px solid var(--line);padding:18px 0 10px}.filter-buttons{display:flex;gap:5px}.filter-buttons button{font-size:11px;padding:4px 10px;border-color:transparent}.filter-buttons button.active{border-color:var(--line);background:var(--white)}.messages-toggle{font-size:11px;color:var(--soft);display:flex;gap:5px;align-items:center;white-space:nowrap}.messages-toggle input{accent-color:var(--accent)}.timeline-explanation{font-size:11px;color:var(--soft);padding:11px 0}.timeline-list{position:relative;max-height:730px;overflow:auto;padding:2px 4px 8px 0;scrollbar-width:thin}.timeline-row{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:12px;margin:0 0 8px;position:relative}.timeline-row:before{content:'';position:absolute;left:13px;top:24px;bottom:-12px;width:1px;background:var(--line)}.timeline-row:last-child:before{display:none}.call-number{font:11px/1.5 Consolas,monospace;color:var(--soft);text-align:center;padding-top:16px;z-index:1;background:var(--paper);height:38px}.event-card{width:100%;padding:12px 14px;text-align:left;background:transparent;border:1px solid transparent;border-radius:4px;min-width:0;line-height:1.55}.event-card:hover{background:#f0ece3;border-color:var(--line)}.event-card.selected{border-color:#cbb6b6;background:var(--white);box-shadow:inset 3px 0 var(--accent)}.event-title{display:flex;align-items:center;justify-content:space-between;gap:9px}.tool-name{font-weight:500;font-size:13px;overflow-wrap:anywhere}.event-badges{display:flex;align-items:center;gap:5px;flex-shrink:0}.status{font-size:9px;padding:1px 5px;border-radius:2px;background:#edeae3;color:var(--soft)}.status.error{background:var(--accent-soft);color:var(--accent);padding:1px 5px}.status.ok{color:var(--green);background:var(--green-soft)}.status.pending{color:var(--amber);background:var(--amber-soft)}.repeat-badge{font-size:9px;color:var(--amber);border:1px solid #d7c9af;padding:0 4px;white-space:nowrap}.input-preview{font:11px/1.6 Consolas,monospace;color:#49473e;display:block;white-space:pre-wrap;word-break:break-word;margin:7px 0 5px}.output-preview{font-size:11px;color:var(--soft);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.message-row .event-card{font-size:12px;color:var(--soft);border-top:1px solid #e5e1d8;border-radius:0;padding:9px 14px}.message-row .input-preview{font-family:var(--body);color:var(--soft);margin-top:4px}.empty{padding:35px 18px;text-align:center;border:1px dashed var(--line);color:var(--soft);font-size:13px}.inspector{min-width:0;border-left:1px solid var(--line);padding:10px 0 0 29px}.inspector-top{display:flex;align-items:baseline;justify-content:space-between;gap:15px}.inspector-top .mono{color:var(--soft)}.detail-heading{margin:9px 0 7px;display:flex;align-items:baseline;justify-content:space-between;gap:12px}.detail-heading h2{font-size:29px;overflow-wrap:anywhere}.detail-status{font-size:11px;color:var(--soft);margin-bottom:12px}.detail-block{margin-top:14px}.block-label{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--soft);margin-bottom:6px}.code-text{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.75 Consolas,'Microsoft YaHei',monospace;background:#f0ede6;border:1px solid #e2ddd2;border-radius:3px;padding:12px 13px;max-height:240px;overflow:auto;color:#393830;margin:0;scrollbar-width:thin}.code-text.output{background:var(--white);max-height:280px}.original-source{margin-top:17px;font-size:11px;color:var(--soft)}.original-source summary{cursor:pointer;color:var(--accent)}.original-source .code-text{margin-top:6px;font-size:10px;max-height:230px}.source-record-label{margin-top:12px;font-size:10px}.features-section{border-top:1px solid var(--line);margin-top:22px;padding-top:17px}.feature-heading{display:flex;align-items:center;justify-content:space-between;gap:15px}.features-section h3,.related-section h3{font-size:21px}.feature-keys{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.feature-key{display:inline-block;font:10px/1.5 Consolas,monospace;padding:2px 5px;background:#ece9df;color:#5c5a4e;border-radius:2px;overflow-wrap:anywhere;max-width:100%}.feature-evidence{margin-top:12px;font-size:11px;color:var(--soft)}.feature-evidence summary{cursor:pointer}.feature-evidence-item{border-top:1px solid var(--line);padding:8px 0;margin-top:8px}.feature-evidence-item code{color:var(--accent);font-size:10px}.feature-evidence-item .excerpt{font:10px/1.6 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:4px 0}.feature-evidence-item .rule{font-size:9px}.related-section{border-top:1px solid var(--line);padding-top:17px;margin-top:18px}.related-section>p{margin-top:8px}.related-call{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);border-radius:0;padding:10px 0;margin-top:9px;font-size:12px}.related-call:hover{background:transparent;color:var(--accent)}.related-call-head{display:flex;justify-content:space-between;gap:12px}.related-call-head span{font-size:11px;color:var(--soft)}.related-call code{display:block;font-size:10px;color:var(--soft);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:3px}.related-call small{display:block;font-size:9px;color:var(--soft);margin-top:3px;overflow-wrap:anywhere}.workspace-boundary{font-size:11px;color:var(--soft);border-top:1px solid var(--line);padding-top:16px;margin-top:27px;max-width:1000px}.map-container{padding:12px 0}.map-caption{font-size:11px;color:var(--soft);margin-bottom:14px}.map-container svg{display:block;width:100%;min-height:370px;border:1px solid var(--line);background:var(--white)}.map-container .small{margin-top:9px}.map-node{cursor:pointer}.map-node:focus{outline:none}.map-node:focus rect{stroke:var(--accent);stroke-width:3}footer{max-width:1480px;margin:auto;border-top:1px solid var(--line);padding:22px 40px 30px;display:flex;justify-content:space-between;gap:20px;color:var(--soft);font-size:11px}.skip{position:absolute;left:20px;top:-100px;padding:10px;background:var(--white);z-index:10}.skip:focus{top:10px}dialog{background:var(--paper);color:var(--ink);border:1px solid #c4bcb0;border-radius:6px;max-width:680px;width:calc(100% - 32px);padding:25px;max-height:90vh;overflow:auto;box-shadow:0 20px 90px #352a291f}dialog::backdrop{background:#30292766;backdrop-filter:blur(2px)}.dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:14px}.dialog-head h2{font-size:30px}.dialog-head .close{border:0;padding:0 6px;font-size:24px}.dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}dialog>p{font-size:13px;color:var(--soft)}.file-zone{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;min-height:112px;border:1px dashed #b9aa96;border-radius:4px;margin:18px 0;color:var(--ink);background:#f1eee7}.file-zone.dragging{border-color:var(--accent);background:var(--accent-soft)}.file-zone input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}.file-zone:focus-within{outline:2px solid var(--accent);outline-offset:4px}.file-zone strong{font-size:13px;font-weight:500}.file-zone span{font-size:11px;color:var(--soft)}.paste-heading{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin:12px 0 7px;font-size:12px;color:var(--soft)}textarea{width:100%;border:1px solid var(--line);border-radius:4px;background:var(--white);padding:12px;color:var(--ink);font:11px/1.75 Consolas,monospace;resize:vertical}.file-zone+div+textarea+p{margin-top:10px}.error{color:var(--accent);font-size:12px;background:var(--accent-soft);border-radius:3px;padding:10px;margin-top:12px}#method-content h3{font-size:23px;margin:22px 0 7px}#method-content p,#method-content li{font-size:13px;color:#615e55;line-height:1.8}#method-content p{margin:7px 0}#method-content code{font-size:11px;color:var(--accent)}#method-content ul{padding-left:20px}.export-options{display:grid;gap:9px;margin-top:20px}.export-options button{text-align:left;background:var(--white);padding:14px}.export-options strong{font-weight:500;font-size:14px;display:block}.export-options span{font-size:11px;color:var(--soft);display:block;margin-top:5px}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);padding:11px 19px;border:1px solid #c7b4ad;background:var(--white);box-shadow:0 10px 30px #30292722;border-radius:4px;max-width:calc(100% - 30px);font-size:12px;z-index:20}[hidden]{display:none!important}
+@media(min-width:1500px){.timeline-list{max-height:820px}.work-grid{gap:45px}.inspector{padding-left:35px}}
+@media(max-width:1150px){.site-header{padding:21px 28px}main{padding:31px 28px 24px}.work-grid{gap:23px;grid-template-columns:minmax(0,1fr) minmax(320px,1fr)}.inspector{padding-left:20px}.run-toolbar{flex-wrap:wrap;gap:15px}.run-metrics{gap:16px}.run-toolbar>label{min-width:165px;max-width:230px}.local-note{display:none}footer{padding-left:28px;padding-right:28px}.event-title{align-items:flex-start;flex-wrap:wrap}.code-text{font-size:10px}.panel-top h2{font-size:24px}}
+@media(max-width:800px){.site-header{padding:20px}.site-header nav{gap:15px}main{padding:27px 20px 20px}.intro-row{align-items:flex-start;gap:15px}.intro-row>.primary{padding:9px 13px;margin-top:4px}h1{font-size:33px}.lead{font-size:13px}.dataset-line{flex-wrap:wrap;gap:8px}.dataset-line>.text-link{margin-left:auto}.run-toolbar>label{flex:1;min-width:140px;max-width:none}.run-metrics{margin:0;order:3;flex:1;padding:0}.run-toolbar>.secondary{order:4}.source-summary{gap:10px;margin-top:4px}.work-grid{grid-template-columns:1fr;gap:20px}.timeline-list{max-height:470px}.inspector{border-left:0;border-top:1px solid var(--line);padding:22px 0 0}.code-text{font-size:11px;max-height:230px}.comparison-top{gap:12px}.comparison-top h3{width:100%;margin:0}.comparison-difference{gap:8px}.comparison-difference button{padding:9px}.event-title{flex-wrap:nowrap}.status{font-size:9px}.inspector-top .kicker{margin-bottom:0}footer{padding:20px;flex-wrap:wrap}footer>span:nth-child(2){display:none}.workspace-boundary{margin-top:25px}}
+@media(max-width:460px){.site-header{padding:17px 16px}.wordmark{font-size:23px}.site-header nav{gap:13px}.site-header nav>a{display:none}.site-header .plain{font-size:11px}main{padding:24px 16px 20px}.intro-row{display:block}.intro-row>.primary{margin-top:16px}h1{font-size:32px}.run-toolbar{gap:12px}.run-toolbar>label{min-width:130px}.run-metrics{gap:18px}.comparison-difference{grid-template-columns:1fr}.timeline-row{grid-template-columns:24px minmax(0,1fr);gap:7px}.timeline-row:before{left:11px}.call-number{font-size:10px}.event-card{padding:11px}.input-preview{font-size:10px}.tool-name{font-size:12px}.repeat-badge{font-size:8px}.filter-row{gap:5px}.messages-toggle{font-size:10px}.filter-buttons{gap:0}.filter-buttons button{padding:4px 7px}.view-buttons button{padding:4px 5px}.panel-top h2{font-size:22px}dialog{padding:20px}.dialog-head h2{font-size:27px}footer{padding:20px 16px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+/* Keep the workspace on the personal site's typography and paper palette. */
+:root{--paper:var(--color-bg);--ink:var(--color-text);--soft:var(--color-text-muted);--line:var(--color-border);--accent:var(--color-accent);--accent-soft:var(--color-accent-soft);--white:var(--color-bg-raised)}
+.site-header,main,footer{max-width:1260px}.site-header{padding-top:22px;padding-bottom:22px}main{padding-top:28px}.intro{margin-bottom:22px}.kicker{letter-spacing:.04em}.lead{margin-top:8px}.panel-top{align-items:baseline;flex-wrap:wrap}.panel-top h2{font-size:24px}.view-buttons{gap:1px}.timeline-list{max-height:600px}.code-text{border:0;border-radius:0;background:#efede6}.code-text.output{background:transparent;padding-left:0;padding-right:0}.features-section>summary{cursor:pointer;color:var(--soft);font-size:12px}.features-section>button{margin-top:10px}.feature-key{background:transparent;padding:0 6px 0 0}.related-section h3{font-size:20px}.related-call-head{display:block}.related-call-head strong{font-weight:500;font-size:11px}.related-call-head span{float:right}.related-call small{display:none}.process-settings{display:flex;gap:19px;margin:4px 0 14px;color:var(--soft);font-size:11px}.process-settings label{display:flex;gap:7px;align-items:center}.process-settings select{font-size:11px;padding:4px 22px 4px 7px}.process-scroll{max-width:100%;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line);scrollbar-width:thin}.process-scroll svg{width:auto;min-height:0;border:0;max-width:none}.process-node{cursor:pointer}.process-node:focus{outline:none}.process-node:focus circle{stroke:#8f1d2c;stroke-width:3}.process-blocks{margin-top:14px;font-size:11px;color:var(--soft)}.process-blocks summary{cursor:pointer}.process-blocks p{margin:10px 0}.block-list{display:flex;flex-wrap:wrap;gap:5px 18px;margin:9px 0}.block-list button{font-size:11px;color:var(--soft)}.block-list button.active{color:var(--accent);text-decoration:underline}.cut-link{margin-right:16px;font-size:11px}.map-container .small{margin-top:10px}.map-caption{line-height:1.8}.work-grid{grid-template-columns:minmax(0,1.15fr) minmax(310px,1fr);gap:28px}.inspector{padding-left:24px}.event-card.selected{box-shadow:inset 2px 0 var(--accent);border-color:transparent}.event-card{border-radius:0}.run-metrics b{font-size:22px}
+@media(max-width:800px){.work-grid{grid-template-columns:minmax(0,1fr);gap:20px}.inspector{padding:22px 0 0}.timeline-list{max-height:440px}.panel-top{gap:9px}.view-buttons{flex-wrap:wrap}.source-summary{line-height:1.8}.related-call-head{display:flex}.related-call-head span{float:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Skip to workspace</a>
+<header class="site-header">
+  <a href="./index.html" class="wordmark">Trajectory <span>Lens</span><small>0.2</small></a>
+  <nav aria-label="Workspace navigation">
+    <a href="https://github.com/JunjieNian/TrajectoryLens" target="_blank" rel="noopener" data-i18n="repository">Repository ↗</a>
+    <button class="plain" id="method-open" data-i18n="howItWorks">How it works</button>
+    <button class="language" id="language-button" aria-label="Switch to Chinese">中文</button>
+  </nav>
+</header>
+<main id="main">
+  <section class="intro">
+    <p class="kicker" data-i18n="researchWorkspace">A workspace for agent logs</p>
+    <div class="intro-row"><div><h1 data-i18n="headline">Trajectory Lens</h1><p class="lead" data-i18n="lead">Inspect raw tool calls, results, and related process steps. No state labels needed.</p></div><button class="primary" id="import-open" data-i18n="importLogs">Import logs</button></div>
+  </section>
+  <div class="dataset-line"><span class="dataset-badge" id="data-kind"></span><strong id="dataset-name"></strong><span class="local-note" data-i18n="localOnly">Files stay in this browser</span><button class="text-link" id="reset-demo" data-i18n="loadExample">Load example</button></div>
+  <section class="run-toolbar" aria-label="Run selection">
+    <label><span data-i18n="inspectRun">Inspect run</span><select id="run-select"></select></label>
+    <label><span data-i18n="compareWith">Compare with</span><select id="compare-select"></select></label>
+    <div id="run-metrics" class="run-metrics" aria-live="polite"></div>
+    <button class="secondary" id="export-open" data-i18n="export">Export</button>
+  </section>
+  <div class="source-summary" id="source-summary"></div>
+  <details id="warnings" class="warnings" hidden><summary id="warning-summary"></summary><div id="warning-list"></div></details>
+  <section class="comparison" id="comparison" hidden aria-label="Invocation sequence comparison"></section>
+  <div class="work-grid">
+    <section class="timeline-panel" aria-label="Chronological log">
+      <div class="panel-top"><h2 id="view-heading">Tool-call timeline</h2><div class="view-buttons"><button id="timeline-view" class="active" aria-pressed="true" data-i18n="timelineTab">Timeline</button><button id="process-view" aria-pressed="false" data-i18n="processMap">Process map</button><button id="map-view" aria-pressed="false" data-i18n="actionMap">Action map</button></div></div>
+      <div class="filter-row"><div role="group" aria-label="Filter calls" class="filter-buttons"><button data-filter="all" class="active" aria-pressed="true" data-i18n="all">All</button><button data-filter="failed" aria-pressed="false" data-i18n="failed">Failed</button><button data-filter="repeated" aria-pressed="false" data-i18n="repeated">Repeated</button></div><label class="messages-toggle"><input type="checkbox" id="show-messages"><span data-i18n="showMessages">Include messages</span></label></div>
+      <p class="timeline-explanation" id="timeline-explanation"></p>
+      <div id="timeline" class="timeline-list" aria-live="polite"></div>
+      <div id="map-container" class="map-container" hidden><p class="map-caption" data-i18n="mapExplanation">Each node is an exact tool invocation. Arrows follow actual call order; repeated nodes are not inferred states.</p><svg id="action-map" role="img" aria-label="Exact tool invocation map"></svg><p id="map-note" class="muted small"></p></div>
+      <div id="process-container" class="map-container" hidden><p class="map-caption" data-i18n="processExplanation">Each point is a recorded call. Similarity links come from automatically extracted TraceGraph signatures.</p><div class="process-settings"><label><span data-i18n="neighbors">Neighbors</span><select id="process-k"><option value="3">3</option><option value="6" selected>6</option><option value="10">10</option></select></label><label><span data-i18n="minimumOverlap">Minimum overlap</span><select id="process-threshold"><option value="0">0%</option><option value="0.2" selected>20%</option><option value="0.4">40%</option><option value="0.6">60%</option></select></label></div><div class="process-scroll"><svg id="process-map" role="img" aria-label="TraceGraph observable process map"></svg></div><p id="process-note" class="muted small" aria-live="polite"></p><details class="process-blocks"><summary data-i18n="structuralBlocks">Structural blocks and connection points</summary><div id="process-blocks"></div></details></div>
+    </section>
+    <aside class="inspector" aria-label="Selected event details">
+      <div class="inspector-top"><p class="kicker" data-i18n="recordEvidence">Recorded evidence</p><span id="event-location" class="mono"></span></div>
+      <div id="event-detail"></div>
+      <details class="features-section" id="features-section"><summary data-i18n="observableFeatures">Observable features</summary><button class="text-link" id="feature-help" data-i18n="whatMatches">What matches?</button><div id="feature-keys"></div><details class="feature-evidence"><summary data-i18n="showFeatureEvidence">Show extraction evidence</summary><div id="feature-evidence"></div></details></details>
+      <section class="related-section" id="related-section"><h3 data-i18n="relatedSteps">Related calls in these logs</h3><p class="small muted" data-i18n="relatedExplanation">Shared file, command, or output signatures. A local comparison of the loaded records.</p><div id="related-list"></div></section>
+    </aside>
+  </div>
+</main>
+<footer><span>Trajectory Lens · Junjie Nian</span><span data-i18n="footer">Read the process, keep the evidence.</span><button class="text-link" id="method-footer" data-i18n="formatsMethods">Formats & methods</button></footer>
+<dialog id="import-dialog"><div class="dialog-head"><h2 data-i18n="importTitle">Bring your raw logs</h2><button class="close" aria-label="Close">×</button></div><p data-i18n="importIntro">Choose one or more JSON / JSONL logs. OpenAI-style messages and supported Codex logs are recognized automatically. No annotated states required.</p><label class="file-zone" id="drop-zone"><input type="file" id="file-input" accept=".json,.jsonl,.ndjson,.traj,.txt,application/json" multiple><strong id="file-label" data-i18n="chooseFiles">Choose files or drop them here</strong><span data-i18n="fileLimit">Up to 10 MB per file, 20 MB in total</span></label><div class="paste-heading"><label for="paste-input" data-i18n="pasteInstead">Or paste a log</label><button class="text-link" id="download-demo" data-i18n="downloadExample">Download raw example</button></div><textarea id="paste-input" rows="8" spellcheck="false" placeholder='{"messages":[{"role":"assistant","tool_calls":[{"id":"call-1","function":{"name":"exec_command","arguments":"{\"cmd\":\"pytest -q\"}"}}]},{"role":"tool","tool_call_id":"call-1","content":"{\"exit_code\":1,\"output\":\"1 failed\"}"}]}'></textarea><p class="small muted" data-i18n="noExecution">We inspect logs; no commands are executed and no files are uploaded. Refreshing clears imported data.</p><p class="error" id="import-error" role="alert" hidden></p><div class="dialog-actions"><button class="secondary close" data-i18n="cancel">Cancel</button><button class="primary" id="import-confirm" data-i18n="inspectLogs">Inspect logs</button></div></dialog>
+<dialog id="method-dialog"><div class="dialog-head"><h2 data-i18n="methodTitle">From records to a useful timeline</h2><button class="close" aria-label="Close">×</button></div><div id="method-content"></div><div class="dialog-actions"><button class="primary close" data-i18n="understood">Understood</button></div></dialog>
+<dialog id="export-dialog"><div class="dialog-head"><h2 data-i18n="exportTitle">Keep your analysis</h2><button class="close" aria-label="Close">×</button></div><p data-i18n="exportIntro">Exports retain original records and distinguish observed call outcomes from unknown task outcomes.</p><div class="export-options"><button id="export-report"><strong data-i18n="report">Markdown report</strong><span data-i18n="reportDescription">Call counts, repeated inputs, first differing call, and limitations</span></button><button id="export-json"><strong data-i18n="canonical">Canonical raw JSON</strong><span data-i18n="canonicalDescription">Events, paired results, and original source records</span></button><button id="export-svg"><strong data-i18n="svg">SVG action map</strong><span data-i18n="svgDescription">Exact invocation nodes and observed call-order edges</span></button><button id="export-process-svg"><strong data-i18n="processSvg">SVG process map</strong><span data-i18n="processSvgDescription">Automatically extracted similarities between recorded calls</span></button></div></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+<script>/* Trajectory Lens: raw recorded operations, exact pairing, no dependencies. */
+(function (root, factory) {
+  'use strict';
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) root.LensRaw = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  var FORMAT = 'trajectory-lens/raw-v1';
+  var LIMITS = Object.freeze({ fileBytes: 10 * 1024 * 1024, totalBytes: 20 * 1024 * 1024, runs: 100, eventsPerRun: 2000, events: 20000 });
+  var has = function (value, key) { return Object.prototype.hasOwnProperty.call(value, key); };
+  var object = function (value) { return value !== null && typeof value === 'object' && !Array.isArray(value); };
+  var error = function (message) { throw new Error(message); };
+  var clone = function (value) { return JSON.parse(JSON.stringify(value)); };
+  function stable(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stable).join(',') + ']';
+    return '{' + Object.keys(value).sort().map(function (key) { return JSON.stringify(key) + ':' + stable(value[key]); }).join(',') + '}';
+  }
+  function bytes(text) { return new TextEncoder().encode(text).length; }
+  function display(value) { return value === undefined ? '' : (typeof value === 'string' ? value : JSON.stringify(value, null, 2)); }
+  function title(filename) { return String(filename || 'Imported traces').replace(/^.*[\\/]/, '').replace(/\.(jsonl|ndjson|json|traj)$/i, '') || 'Imported traces'; }
+  function textContent(value) {
+    if (typeof value === 'string') return value;
+    if (value === null || value === undefined) return '';
+    if (Array.isArray(value)) return value.map(textContent).filter(function (part) { return part !== ''; }).join('\n');
+    if (object(value)) {
+      if (typeof value.text === 'string') return value.text;
+      if (object(value.text) && typeof value.text.value === 'string') return value.text.value;
+      if (typeof value.thinking === 'string') return value.thinking;
+      if (typeof value.refusal === 'string') return value.refusal;
+      if (has(value, 'content')) return textContent(value.content);
+    }
+    return display(value);
+  }
+  function invocationKey(tool, input, provided) {
+    if (!provided) return 'call:' + stable([tool, 'missing']);
+    if (typeof input === 'string') {
+      try { var parsed = JSON.parse(input); return numericPrecisionRisk(input) ? 'call:' + stable([tool, 'json-raw', input]) : 'call:' + stable([tool, 'json', parsed]); }
+      catch (_) { return 'call:' + stable([tool, 'text', input]); }
+    }
+    return 'call:' + stable([tool, 'json', input]);
+  }
+  function numericPrecisionRisk(text) {
+    function decimal(token) {
+      var match = token.match(/^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/);
+      var digits = (match[2] + (match[3] || '')).replace(/^0+/, '');
+      if (!digits) return '0';
+      var exponent = Number(match[4] || 0) - (match[3] || '').length;
+      while (digits.endsWith('0')) { digits = digits.slice(0, -1); exponent += 1; }
+      return match[1] + digits + 'e' + exponent;
+    }
+    for (var index = 0; index < text.length; index += 1) {
+      if (text[index] === '"') {
+        index += 1;
+        while (index < text.length) { if (text[index] === '\\') index += 2; else if (text[index] === '"') break; else index += 1; }
+      } else if (text[index] === '-' || /[0-9]/.test(text[index])) {
+        var match = text.slice(index).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/);
+        if (!match) return true;
+        var token = match[0], value = Number(token);
+        if (!Number.isFinite(value) || Object.is(value, -0) || (Number.isInteger(value) && !Number.isSafeInteger(value)) || decimal(token) !== decimal(String(value))) return true;
+        index += token.length - 1;
+      }
+    }
+    return false;
+  }
+  function inferredHasOutput(event) {
+    if (event.kind !== 'tool') return false;
+    if (event.unmatchedOutput || event.isInvocation === false || event.outputText !== '') return true;
+    return (event.sourceRecords || []).some(function (source) {
+      var record = source.record;
+      if (!object(record)) return false;
+      if (record.type === 'response_item' && object(record.payload)) record = record.payload;
+      if (['function_call_output', 'custom_tool_call_output', 'tool_result'].indexOf(record.type) >= 0 || record.role === 'tool' || record.role === 'function') return true;
+      return (has(record, 'action') || has(record, 'raw_action')) && ['observation', 'raw_observation', 'output', 'result'].some(function (field) { return has(record, field); });
+    });
+  }
+  function withOutputFlags(data) {
+    data.runs.forEach(function (run) { run.events.forEach(function (event) {
+      if (!has(event, 'hasOutput')) {
+        event.hasOutput = inferredHasOutput(event);
+        // Earlier raw-v1 exports had no output flag and could carry rounded
+        // numeric keys. The preserved argument text remains authoritative.
+        if (event.actionKey && typeof event.tool === 'string') event.actionKey = invocationKey(event.tool, event.inputText, event.inputProvided !== false);
+      }
+    }); });
+    return data;
+  }
+  function statusEvidence(value, codexWrapper) {
+    var candidate = value;
+    if (typeof candidate === 'string') {
+      try { var parsed = JSON.parse(candidate); if (object(parsed)) candidate = parsed; } catch (_) {}
+    }
+    if (object(candidate)) {
+      if (has(candidate, 'exit_code')) {
+        if (typeof candidate.exit_code !== 'number' || !Number.isFinite(candidate.exit_code)) error('exit_code must be a finite number.');
+        return { status: candidate.exit_code === 0 ? 'ok' : 'error', basis: 'reported exit_code=' + candidate.exit_code };
+      }
+      if (typeof candidate.is_error === 'boolean') return { status: candidate.is_error ? 'error' : 'ok', basis: 'reported is_error=' + candidate.is_error };
+      if (typeof candidate.status === 'string') {
+        var status = candidate.status.toLowerCase();
+        if (['error', 'failed', 'failure'].indexOf(status) >= 0) return { status: 'error', basis: 'reported status=' + candidate.status };
+        if (['ok', 'success', 'succeeded', 'completed'].indexOf(status) >= 0) return { status: 'ok', basis: 'reported status=' + candidate.status };
+        if (['pending', 'running', 'in_progress', 'queued'].indexOf(status) >= 0) return { status: 'pending', basis: 'reported status=' + candidate.status };
+      }
+      // Structured wrappers only. Arbitrary text containing "error" or "FAILED"
+      // never labels an operation, much less the task outcome.
+      var nested = ['output', 'result', 'observation'];
+      for (var i = 0; i < nested.length; i += 1) {
+        if (has(candidate, nested[i])) {
+          var evidence = statusEvidence(candidate[nested[i]], codexWrapper);
+          if (evidence) return evidence;
+        }
+      }
+    }
+    if (codexWrapper && typeof value === 'string') {
+      // Native terminal transport convention, not a keyword heuristic. Require
+      // the terminal wrapper header and an entire reported-exit-code line.
+      var match = value.match(/(?:^|\r?\n)Process exited with code (-?\d+)(?:\r?\n|$)/);
+      if (match && /(?:^|\r?\n)(?:Chunk ID:|Wall time:|Final output:|Output:)/.test(value)) {
+        var exit = Number(match[1]);
+        return { status: exit === 0 ? 'ok' : 'error', basis: 'Codex terminal wrapper reported-exit-code=' + exit };
+      }
+    }
+    return null;
+  }
+  function applyStatus(event, evidence) {
+    if (!evidence) return;
+    if (event.status === 'error' && evidence.status !== 'error') return;
+    event.status = evidence.status;
+    event.statusBasis = evidence.basis;
+  }
+  function explicitOutcome(raw) {
+    if (raw.outcome !== undefined) {
+      if (['unknown', 'success', 'failure'].indexOf(raw.outcome) < 0) error('outcome must be unknown, success, or failure.');
+      return raw.outcome;
+    }
+    if (typeof raw.success === 'boolean') return raw.success ? 'success' : 'failure';
+    if (typeof raw.resolved === 'boolean') return raw.resolved ? 'success' : 'failure';
+    if (typeof raw.is_resolved === 'boolean') return raw.is_resolved ? 'success' : 'failure';
+    if (object(raw.metadata) && (raw.metadata.resolved_score === 0 || raw.metadata.resolved_score === 1)) return raw.metadata.resolved_score === 1 ? 'success' : 'failure';
+    return 'unknown';
+  }
+  // JSON.parse decides validity. This scanner only retains the exact byte-text
+  // span, line and path of each supplied object, including pretty-printed JSON.
+  // It prevents an entire multi-message document from being copied per event.
+  function indexSource(text, parsed, sources, lineOffset) {
+    var pos = 0, lineStarts = [0];
+    for (var t = 0; t < text.length; t += 1) if (text[t] === '\n') lineStarts.push(t + 1);
+    function skip() { while (/\s/.test(text[pos] || '') && pos < text.length) pos += 1; }
+    function stringEnd() { pos += 1; while (pos < text.length) { if (text[pos] === '\\') pos += 2; else if (text[pos++] === '"') break; } }
+    function lineAt(offset) { var low = 0, high = lineStarts.length; while (low + 1 < high) { var mid = (low + high) >> 1; if (lineStarts[mid] <= offset) low = mid; else high = mid; } return (lineOffset || 0) + low + 1; }
+    function visit(value, path) {
+      skip(); var start = pos, opening = text[pos];
+      if (opening === '{') {
+        pos += 1; skip();
+        while (text[pos] !== '}') {
+          var keyStart = pos; stringEnd(); var key = JSON.parse(text.slice(keyStart, pos)); skip(); pos += 1;
+          visit(value[key], path.concat(key)); skip(); if (text[pos] !== ',') break; pos += 1; skip();
+        }
+        pos += 1;
+      } else if (opening === '[') {
+        pos += 1; skip(); var index = 0;
+        while (text[pos] !== ']') { visit(value[index], path.concat(index)); index += 1; skip(); if (text[pos] !== ',') break; pos += 1; skip(); }
+        pos += 1;
+      } else if (opening === '"') stringEnd();
+      else { while (pos < text.length && !/[\s,}\]]/.test(text[pos])) pos += 1; }
+      if (value !== null && typeof value === 'object') sources.set(value, { line: lineAt(start), rawText: text.slice(start, pos), path: path.length ? path.map(String).join('.') : '$' });
+    }
+    visit(parsed, []);
+  }
+  function sourceRecord(value, type, sources, fallback) {
+    var indexed = value && typeof value === 'object' ? sources.get(value) : undefined;
+    return { line: indexed ? indexed.line : (fallback || 1), type: type, rawText: indexed ? indexed.rawText : JSON.stringify(value), record: value, path: indexed ? indexed.path : '$' };
+  }
+  function createBuilder(raw, ordinal, filename, sourceFormat, warnings, sources) {
+    var originalId = raw.id !== undefined ? raw.id : raw.run_id;
+    if (originalId === undefined && raw.instance_id !== undefined) originalId = String(raw.instance_id) + '/run-' + ordinal;
+    if (originalId !== undefined && typeof originalId !== 'string' && typeof originalId !== 'number') error('Run ID must be a string or number.');
+    var id = originalId === undefined ? 'run-' + ordinal : String(originalId);
+    if (!id.trim()) error('Run ID cannot be empty.');
+    var run = { id: id, name: typeof raw.name === 'string' && raw.name ? raw.name : id, model: typeof raw.model === 'string' ? raw.model : (typeof raw.model_id === 'string' ? raw.model_id : 'Unspecified'), source: { format: sourceFormat, filename: filename || 'pasted.json' }, outcome: explicitOutcome(raw), events: [] };
+    ['benchmark', 'dataset', 'task', 'instance_id', 'metadata'].forEach(function (key) { if (has(raw, key)) { if (!run.source.metadata) run.source.metadata = {}; run.source.metadata[key] = raw[key]; } });
+    var calls = new Map(), outputs = [], counter = 0, primaryCount = 0, unused = [];
+    function add(event, isOutput) {
+      if (!isOutput) { if (primaryCount >= LIMITS.eventsPerRun) error('Run "' + run.id + '" exceeds 2,000 events.'); primaryCount += 1; }
+      event.id = 'event-' + (++counter); event.index = run.events.length;
+      run.events.push(event); return event;
+    }
+    function record(value, type) { return sourceRecord(value, type, sources); }
+    function message(value, role, source, mirror, turn) {
+      var text = textContent(value);
+      if (text === '') return;
+      if (mirror) {
+        for (var i = run.events.length - 1; i >= Math.max(0, run.events.length - 12); i -= 1) {
+          var prior = run.events[i];
+          if (prior.kind === 'message' && prior._mirror && prior._mirror !== mirror && !prior._mirrored && prior._turn === turn && prior.role === role && prior.text === text) {
+            prior.sourceRecords.push(source); prior._mirrored = true; return;
+          }
+        }
+      }
+      var event = add({ kind: 'message', label: role ? role + ' message' : 'Recorded message', role: role || 'unspecified', inputText: '', outputText: '', hasOutput: false, text: text, status: 'unknown', sourceRecords: [source] });
+      event._mirror = mirror; event._turn = turn;
+    }
+    function call(tool, input, provided, callId, source, rawCall) {
+      if (typeof tool !== 'string' || !tool.trim()) error('A recorded tool call has no tool name (source line ' + source.line + ').');
+      var inputSource = input !== null && typeof input === 'object' ? sources.get(input) : undefined;
+      var inputText = inputSource ? inputSource.rawText : display(input);
+      var event = add({ kind: 'tool', label: tool, tool: tool, inputText: inputText, inputProvided: provided, outputText: '', hasOutput: false, text: inputText, status: 'pending', actionKey: invocationKey(tool, inputText, provided), isInvocation: true, sourceRecords: [source] });
+      if (event.actionKey.startsWith('call:[' + JSON.stringify(tool) + ',"json-raw",')) warnings.push('Run "' + run.id + '": numeric precision in arguments at source line ' + source.line + ' requires exact argument-text matching; JSON key order and formatting remain significant for this call.');
+      if (callId !== undefined && callId !== null && String(callId) !== '') {
+        if (typeof callId !== 'string' && typeof callId !== 'number') error('Tool call IDs must be strings or numbers.');
+        event.callId = String(callId); if (!calls.has(event.callId)) calls.set(event.callId, []); calls.get(event.callId).push(event);
+      }
+      applyStatus(event, statusEvidence(rawCall, false));
+      return event;
+    }
+    function output(callId, value, source, rawOutput, codexWrapper, tool) {
+      var event = add({ kind: 'tool', label: tool || 'Unmatched tool output', tool: tool || 'Unknown tool', inputText: '', outputText: textContent(value), hasOutput: true, text: textContent(value), status: 'unknown', isInvocation: false, unmatchedOutput: true, sourceRecords: [source] }, true);
+      if (callId !== undefined && callId !== null && String(callId) !== '') event.callId = String(callId);
+      applyStatus(event, statusEvidence(rawOutput, codexWrapper) || statusEvidence(value, codexWrapper));
+      outputs.push(event); return event;
+    }
+    function process(rawItem, sourceOverride, mirror, turn) {
+      if (typeof rawItem === 'string') { message(rawItem, 'unspecified', record(rawItem, 'text')); return; }
+      if (!object(rawItem)) error('A trajectory record must be an object or text.');
+      var source = sourceOverride || record(rawItem, rawItem.type || (rawItem.role ? 'message' : 'step'));
+      if (rawItem.type === 'function_call' || rawItem.type === 'custom_tool_call' || rawItem.type === 'tool_use') {
+        var argField = rawItem.type === 'tool_use' ? 'input' : (rawItem.type === 'custom_tool_call' ? 'input' : 'arguments');
+        call(rawItem.name, rawItem[argField], has(rawItem, argField), rawItem.call_id !== undefined ? rawItem.call_id : rawItem.id, source, rawItem); return;
+      }
+      if (rawItem.type === 'function_call_output' || rawItem.type === 'custom_tool_call_output' || rawItem.type === 'tool_result') {
+        output(rawItem.call_id !== undefined ? rawItem.call_id : rawItem.tool_use_id, rawItem.type === 'tool_result' ? rawItem.content : rawItem.output, source, rawItem, !!sourceOverride, rawItem.name); return;
+      }
+      if (rawItem.role === 'tool' || rawItem.role === 'function') {
+        output(rawItem.tool_call_id !== undefined ? rawItem.tool_call_id : rawItem.call_id, rawItem.content, source, rawItem, false, rawItem.name); return;
+      }
+      if ((Array.isArray(rawItem.content) || rawItem.role || rawItem.type === 'message' || rawItem.tool_calls !== undefined || rawItem.function_call !== undefined) && !has(rawItem, 'action') && !has(rawItem, 'raw_action')) {
+        var content = rawItem.content, textual = [];
+        if (Array.isArray(content)) {
+          function flushText() { if (textual.length) { message(textual.filter(function (part) { return part !== ''; }).join('\n'), rawItem.role || 'assistant', source, mirror, turn); textual = []; } }
+          content.forEach(function (block) {
+            if (object(block) && ['tool_use', 'tool_result', 'function_call', 'function_call_output', 'custom_tool_call', 'custom_tool_call_output'].indexOf(block.type) >= 0) { flushText(); process(block, sourceOverride); }
+            else textual.push(textContent(block));
+          });
+          flushText(); content = undefined;
+        }
+        if (content !== undefined && content !== null) message(content, rawItem.role || 'assistant', source, mirror, turn);
+        if (rawItem.refusal) message(rawItem.refusal, rawItem.role || 'assistant', source);
+        if (rawItem.tool_calls !== undefined) {
+          if (!Array.isArray(rawItem.tool_calls)) error('tool_calls must be an array.');
+          rawItem.tool_calls.forEach(function (item) {
+            if (!object(item)) error('Each tool_calls entry must be an object.');
+            var fn = object(item.function) ? item.function : item;
+            call(fn.name, fn.arguments !== undefined ? fn.arguments : fn.input, has(fn, 'arguments') || has(fn, 'input'), item.id !== undefined ? item.id : item.call_id, sourceOverride || record(item, 'tool_call'), item);
+          });
+        }
+        if (object(rawItem.function_call)) {
+          var legacy = rawItem.function_call;
+          call(legacy.name, legacy.arguments, has(legacy, 'arguments'), rawItem.call_id, sourceOverride || record(legacy, 'function_call'), legacy);
+        }
+        return;
+      }
+      if (has(rawItem, 'action') || has(rawItem, 'raw_action')) {
+        if (rawItem.thought !== undefined) message(rawItem.thought, 'recorded thought', source);
+        if (rawItem.thinking !== undefined) message(rawItem.thinking, 'recorded thinking', source);
+        var action = has(rawItem, 'raw_action') ? rawItem.raw_action : rawItem.action, tool = rawItem.tool || rawItem.tool_name || 'action', input = action;
+        if (object(action)) {
+          tool = action.tool || action.tool_name || action.name || (object(action.function) ? action.function.name : undefined) || tool;
+          if (has(action, 'arguments')) input = action.arguments;
+          else if (has(action, 'input')) input = action.input;
+          else if (object(action.function) && has(action.function, 'arguments')) input = action.function.arguments;
+        }
+        var direct = call(tool, input, true, rawItem.call_id, source, rawItem);
+        var observed = has(rawItem, 'raw_observation') || has(rawItem, 'observation') || has(rawItem, 'output') || has(rawItem, 'result');
+        if (observed) {
+          var value = has(rawItem, 'raw_observation') ? rawItem.raw_observation : (has(rawItem, 'observation') ? rawItem.observation : (has(rawItem, 'output') ? rawItem.output : rawItem.result));
+          direct.hasOutput = true; direct.outputText = textContent(value); direct.text = direct.inputText + (direct.outputText ? '\n\n' + direct.outputText : '');
+          if (direct.status === 'pending') direct.status = 'unknown';
+          applyStatus(direct, statusEvidence(rawItem, false) || statusEvidence(value, false));
+        }
+        return;
+      }
+      if (has(rawItem, 'text') || has(rawItem, 'observation') || has(rawItem, 'label') || has(rawItem, 'state')) {
+        message(rawItem.text !== undefined ? rawItem.text : (rawItem.observation !== undefined ? rawItem.observation : display(rawItem)), 'recorded', source); return;
+      }
+      unused.push(source);
+    }
+    function finish() {
+      var removed = new Set();
+      outputs.forEach(function (out) {
+        var matches = out.callId !== undefined ? calls.get(out.callId) : undefined;
+        if (!matches || matches.length !== 1) {
+          warnings.push('Run "' + run.id + '": tool output at line ' + out.sourceRecords[0].line + ' has ' + (matches && matches.length > 1 ? 'an ambiguous reused call ID' : 'no uniquely matching call ID') + '; it remains independently viewable.'); return;
+        }
+        var target = matches[0];
+        if (target._outputCount) warnings.push('Run "' + run.id + '": multiple output records share call ID "' + out.callId + '"; all returned content is preserved.');
+        target._outputCount = (target._outputCount || 0) + 1;
+        target.hasOutput = true;
+        target.outputText += (target._outputCount > 1 ? '\n\n' : '') + out.outputText;
+        target.sourceRecords = target.sourceRecords.concat(out.sourceRecords);
+        if (target.status === 'pending') target.status = 'unknown';
+        if (out.statusBasis) applyStatus(target, { status: out.status, basis: out.statusBasis });
+        target.text = target.inputText + (target.outputText ? '\n\n' + target.outputText : ''); removed.add(out);
+      });
+      calls.forEach(function (items, id) { if (items.length > 1) warnings.push('Run "' + run.id + '": call ID "' + id + '" occurs in multiple invocations; results were not guessed.'); });
+      run.events = run.events.filter(function (event) { return !removed.has(event); });
+      run.events.forEach(function (event, index) { event.index = index; event.id = 'event-' + (index + 1); delete event._mirror; delete event._mirrored; delete event._turn; delete event._outputCount; });
+      if (unused.length) { run.source.unparsedRecords = unused; warnings.push('Run "' + run.id + '": ' + unused.length + ' unsupported records are preserved in source.unparsedRecords but not interpreted as operations.'); }
+      if (!run.events.length) error('Run "' + run.id + '" contains no supported messages or operations.');
+      if (run.events.length > LIMITS.eventsPerRun) error('Run "' + run.id + '" exceeds 2,000 events.');
+      return run;
+    }
+    return { run: run, process: process, message: message, record: record, finish: finish, unused: unused };
+  }
+  function validateDataset(data) {
+    if (!object(data) || data.format !== FORMAT || !Array.isArray(data.runs) || !data.runs.length) error('No valid trajectory runs were supplied.');
+    if (typeof data.name !== 'string' || !Array.isArray(data.warnings) || data.warnings.some(function (warning) { return typeof warning !== 'string'; })) error('Canonical datasets must retain their name and warning list.');
+    if (data.runs.length > LIMITS.runs) error('At most 100 runs can be imported.');
+    var ids = new Set(), count = 0;
+    data.runs.forEach(function (run) {
+      if (!object(run) || typeof run.id !== 'string' || !run.id.trim() || ids.has(run.id)) error('Run IDs must be nonempty and unique.');
+      ids.add(run.id);
+      if (typeof run.name !== 'string' || typeof run.model !== 'string' || !object(run.source) || typeof run.source.format !== 'string' || typeof run.source.filename !== 'string') error('Canonical runs must retain their name, model and source.');
+      if (!Array.isArray(run.events) || !run.events.length) error('Run "' + run.id + '" has no events.');
+      if (run.events.length > LIMITS.eventsPerRun) error('Run "' + run.id + '" exceeds 2,000 events.');
+      count += run.events.length; if (count > LIMITS.events) error('The dataset exceeds 20,000 events.');
+      if (['unknown', 'success', 'failure'].indexOf(run.outcome) < 0) error('Invalid recorded run outcome.');
+      run.events.forEach(function (event, index) {
+        if (!object(event) || ['tool', 'message'].indexOf(event.kind) < 0 || typeof event.label !== 'string') error('Invalid canonical event at index ' + index + '.');
+        if (event.index !== index || typeof event.id !== 'string') error('Canonical event indices must follow their recorded sequence.');
+        ['inputText', 'outputText', 'text'].forEach(function (field) { if (typeof event[field] !== 'string') error('Canonical ' + field + ' must be text.'); });
+        if (['ok', 'error', 'unknown', 'pending'].indexOf(event.status) < 0) error('Invalid recorded operation status.');
+        if (event.hasOutput !== undefined && typeof event.hasOutput !== 'boolean') error('hasOutput must be a boolean.');
+        if (!Array.isArray(event.sourceRecords) || !event.sourceRecords.length) error('Every event must preserve its source records.');
+        event.sourceRecords.forEach(function (source) {
+          if (!object(source) || typeof source.type !== 'string' || typeof source.rawText !== 'string' || !has(source, 'record') || !Number.isInteger(source.line) || source.line < 1) error('Invalid preserved source record.');
+        });
+        if (event.actionKey !== undefined) {
+          if (event.kind !== 'tool' || typeof event.tool !== 'string' || !event.tool || typeof event.actionKey !== 'string') error('Invalid invocation identity.');
+          if (invocationKey(event.tool, event.inputText, event.inputProvided !== false) !== event.actionKey) error('Canonical actionKey does not match its recorded tool and arguments.');
+        }
+      });
+    });
+    return data;
+  }
+  function decodeText(text, filename) {
+    if (typeof text !== 'string' || !text.trim()) error('The input is empty.');
+    if (bytes(text) > LIMITS.fileBytes) error('File "' + (filename || 'pasted data') + '" exceeds 10 MB.');
+    var normalized = text.replace(/^\uFEFF/, ''), sources = new WeakMap(), records = [], parsed;
+    var jsonl = /\.(jsonl|ndjson)$/i.test(filename || '');
+    if (!jsonl) {
+      try { parsed = JSON.parse(normalized); indexSource(normalized, parsed, sources, 0); return { parsed: parsed, sources: sources, jsonl: false }; }
+      catch (failure) { if (normalized.split(/\r?\n/).filter(function (line) { return line.trim(); }).length < 2) error('Invalid JSON: ' + failure.message); jsonl = true; }
+    }
+    normalized.split(/\r?\n/).forEach(function (line, index) {
+      if (!line.trim()) return;
+      var record;
+      try { record = JSON.parse(line); }
+      catch (failure) { error('Invalid JSONL on line ' + (index + 1) + ': ' + failure.message); }
+      if (!object(record)) error('JSONL line ' + (index + 1) + ' must contain an object.');
+      indexSource(line, record, sources, index); records.push(record);
+    });
+    if (!records.length) error('No JSONL records were found.');
+    return { parsed: records, sources: sources, jsonl: true };
+  }
+  function parse(text, filename) {
+    var decoded = decodeText(text, filename), raw = decoded.parsed, sources = decoded.sources;
+    if (object(raw) && raw.format === FORMAT) { validateDatasetForMigration(raw); return validateDataset(withOutputFlags(clone(raw))); }
+    var warnings = [], runs = [], name = object(raw) && typeof raw.name === 'string' ? raw.name : title(filename);
+    var codex = Array.isArray(raw) && raw.some(function (record) { return object(record) && ['session_meta', 'response_item', 'event_msg', 'turn_context'].indexOf(record.type) >= 0; });
+    if (codex) {
+      var builder = null, turn = '', sessionCount = 0;
+      function ensure() { if (!builder) builder = createBuilder({}, ++sessionCount, filename, 'codex-jsonl', warnings, sources); return builder; }
+      raw.forEach(function (record) {
+        if (!object(record)) error('A Codex stream record must be an object.');
+        var payload = object(record.payload) ? record.payload : {}, type = record.type, source = sourceRecord(record, type + (payload.type ? '/' + payload.type : ''), sources);
+        if (type === 'session_meta') {
+          if (builder && builder.run.events.length) { runs.push(builder.finish()); builder = null; }
+          ensure();
+          if (payload.id !== undefined) builder.run.id = String(payload.id);
+          if (typeof payload.model === 'string') builder.run.model = payload.model;
+          builder.run.name = typeof payload.name === 'string' ? payload.name : builder.run.id;
+          builder.run.source.session = source; turn = '';
+        } else if (type === 'turn_context') {
+          ensure(); if (typeof payload.model === 'string') builder.run.model = payload.model;
+          if (payload.turn_id !== undefined) turn = String(payload.turn_id);
+          if (!builder.run.source.contextRecords) builder.run.source.contextRecords = []; builder.run.source.contextRecords.push(source);
+        } else if (type === 'response_item') ensure().process(payload, source, 'response_item', turn);
+        else if (type === 'event_msg' && ['agent_message', 'user_message'].indexOf(payload.type) >= 0) ensure().message(payload.message, payload.type === 'agent_message' ? 'assistant' : 'user', source, 'event_msg', turn);
+        else if (type === 'event_msg' && payload.type === 'task_started') { ensure(); if (payload.turn_id !== undefined) turn = String(payload.turn_id); builder.unused.push(source); }
+        else ensure().unused.push(source);
+      });
+      if (builder) runs.push(builder.finish());
+      warnings.push('Codex event_msg mirrors are deduplicated only against nearby identical response_item messages in the same recorded turn; both source records are retained. Unsupported records are preserved, not reconstructed as hidden reasoning.');
+    } else {
+      var records;
+      if (object(raw) && has(raw, 'runs')) { if (!Array.isArray(raw.runs)) error('runs must be an array.'); records = raw.runs; }
+      else if (Array.isArray(raw)) {
+        if (!raw.length) error('No records were supplied.');
+        var allRuns = raw.every(function (record) { return object(record) && ['messages', 'steps', 'trajectory', 'output', 'choices'].some(function (field) { return has(record, field) && (Array.isArray(record[field]) || (field === 'trajectory' && typeof record[field] === 'string')); }); });
+        records = allRuns ? raw : [{ messages: raw }];
+      } else if (object(raw)) records = [raw];
+      else error('Supply a recorded messages, output, trajectory, steps, or runs object.');
+      if (!records.length) error('No runs were supplied.');
+      records.forEach(function (record, index) {
+        if (!object(record)) error('Each run must be an object.');
+        var format = Array.isArray(record.messages) ? 'messages' : (Array.isArray(record.choices) ? 'openai-chat-completion' : (Array.isArray(record.output) ? 'openai-responses' : (Array.isArray(record.content) ? 'anthropic-content' : (has(record, 'trajectory') ? 'action-observation' : (Array.isArray(record.steps) && record.steps.some(function (step) { return object(step) && has(step, 'raw_action'); }) ? 'tracegraph-parsed' : 'legacy-steps')))));
+        var builder = createBuilder(record, index + 1, filename, format, warnings, sources), items;
+        if (has(record, 'messages')) items = record.messages;
+        else if (has(record, 'steps')) items = record.steps;
+        else if (has(record, 'trajectory')) {
+          items = record.trajectory;
+          if (typeof items === 'string') { try { items = JSON.parse(items); indexSource(record.trajectory, items, sources, (sources.get(record) || {}).line - 1 || 0); } catch (failure) { error('trajectory contains invalid JSON: ' + failure.message); } }
+        } else if (Array.isArray(record.choices)) items = record.choices.map(function (choice) { return choice.message || choice.delta; });
+        else if (Array.isArray(record.output)) items = record.output;
+        else if (Array.isArray(record.content)) items = [record];
+        else if (record.role || record.type === 'message' || has(record, 'action')) items = [record];
+        else error('Run "' + builder.run.id + '" has no messages, output, trajectory, or steps.');
+        if (!Array.isArray(items) || !items.length) error('Run "' + builder.run.id + '" needs a nonempty record array.');
+        items.forEach(function (item) { builder.process(item); }); runs.push(builder.finish());
+      });
+    }
+    return validateDataset({ format: FORMAT, name: name || 'Imported traces', runs: runs, warnings: Array.from(new Set(warnings)) });
+  }
+  function importFiles(files) {
+    if (!Array.isArray(files) || !files.length) error('Choose at least one recorded trace file.');
+    var total = 0;
+    files.forEach(function (file) { if (!object(file) || typeof file.name !== 'string' || typeof file.text !== 'string') error('importFiles expects {name, text} records.'); total += bytes(file.text); });
+    if (total > LIMITS.totalBytes) error('The selected files exceed 20 MB in total.');
+    var datasets = files.map(function (file) { try { return parse(file.text, file.name); } catch (failure) { error(file.name + ': ' + failure.message); } });
+    var runs = [], warnings = [], ids = new Set();
+    datasets.forEach(function (dataset, fileIndex) {
+      warnings = warnings.concat(dataset.warnings || []);
+      dataset.runs.forEach(function (run) {
+        var next = clone(run), original = next.id, suffix = 2;
+        if (ids.has(next.id)) {
+          next.id = original + ' [' + files[fileIndex].name + ']';
+          while (ids.has(next.id)) next.id = original + ' [' + files[fileIndex].name + ' #' + suffix++ + ']';
+          next.source.originalRunId = original; warnings.push('Duplicate run ID "' + original + '" was renamed to "' + next.id + '"; original ID and filename are retained.');
+        }
+        ids.add(next.id); runs.push(next);
+      });
+    });
+    return validateDataset({ format: FORMAT, name: files.length === 1 ? datasets[0].name : files.length + ' imported files', runs: runs, warnings: Array.from(new Set(warnings)) });
+  }
+  function analyze(data) {
+    validateDataset(data);
+    var totals = { runs: data.runs.length, calls: 0, failedCalls: 0, repeatedCalls: 0, messages: 0 }, perRun = [], nodes = new Map(), edges = new Map(), runPaths = {};
+    data.runs.forEach(function (run) {
+      var counts = { id: run.id, calls: 0, failedCalls: 0, repeatedCalls: 0, messages: 0 }, seen = new Set(), path = [];
+      run.events.forEach(function (event, index) {
+        if (event.kind === 'message') { counts.messages += 1; return; }
+        if (!event.actionKey) return;
+        counts.calls += 1; if (event.status === 'error') counts.failedCalls += 1;
+        if (seen.has(event.actionKey)) counts.repeatedCalls += 1; seen.add(event.actionKey); path.push(event.actionKey);
+        if (!nodes.has(event.actionKey)) nodes.set(event.actionKey, { key: event.actionKey, label: event.label, tool: event.tool, count: 0, failures: 0, eventRefs: [] });
+        var node = nodes.get(event.actionKey); node.count += 1; if (event.status === 'error') node.failures += 1; node.eventRefs.push({ runId: run.id, eventIndex: index });
+      });
+      path.slice(1).forEach(function (target, index) { var source = path[index], key = stable([source, target]); if (!edges.has(key)) edges.set(key, { source: source, target: target, count: 0 }); edges.get(key).count += 1; });
+      Object.defineProperty(runPaths, run.id, { value: path, enumerable: true }); perRun.push(counts);
+      ['calls', 'failedCalls', 'repeatedCalls', 'messages'].forEach(function (key) { totals[key] += counts[key]; });
+    });
+    return { totals: totals, perRun: perRun, nodes: Array.from(nodes.values()), edges: Array.from(edges.values()), runPaths: runPaths };
+  }
+  function compare(runA, runB) {
+    if (!runA || !runB || !Array.isArray(runA.events) || !Array.isArray(runB.events)) error('compare expects two recorded runs.');
+    var a = runA.events.filter(function (event) { return event.kind === 'tool' && event.actionKey; }), b = runB.events.filter(function (event) { return event.kind === 'tool' && event.actionKey; }), prefix = 0;
+    while (prefix < a.length && prefix < b.length && a[prefix].actionKey === b[prefix].actionKey) prefix += 1;
+    var setA = new Set(a.map(function (event) { return event.actionKey; })), setB = new Set(b.map(function (event) { return event.actionKey; })), shared = 0;
+    setA.forEach(function (key) { if (setB.has(key)) shared += 1; }); var union = setA.size + setB.size - shared;
+    return { commonPrefix: prefix, firstDifference: prefix === a.length && prefix === b.length ? null : { aIndex: a[prefix] ? a[prefix].index : null, bIndex: b[prefix] ? b[prefix].index : null }, sharedActions: shared, totalActions: union, jaccard: union ? shared / union : 1 };
+  }
+  function validateDatasetForMigration(data) {
+    // Do not traverse malformed shapes before ordinary validation can produce
+    // its clear error. Legacy keys are recomputed only after shape checks.
+    if (!Array.isArray(data.runs) || data.runs.some(function (run) { return !object(run) || !Array.isArray(run.events); })) error('Invalid canonical runs or events.');
+  }
+  function exportJSON(data) { validateDataset(data); return JSON.stringify(withOutputFlags(clone(data)), null, 2) + '\n'; }
+  function markdown(value) { return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\/g, '\\\\').replace(/([`*_{}\[\]()#+!|])/g, '\\$1').replace(/[\r\n]+/g, ' '); }
+  function exportMarkdown(data) {
+    var result = analyze(data), t = result.totals;
+    var lines = ['# Trajectory Lens — ' + markdown(data.name), '', '## Recorded operations', '', '- Runs: ' + t.runs, '- Tool invocations: ' + t.calls, '- Calls with an explicitly reported error: ' + t.failedCalls, '- Additional occurrences of the same invocation within a run: ' + t.repeatedCalls, '- Recorded messages: ' + t.messages, '', '| Run | Source | Calls | Reported errors | Same-invocation repeats | Messages | Recorded outcome |', '| --- | --- | ---: | ---: | ---: | ---: | --- |'];
+    result.perRun.forEach(function (metric) { var run = data.runs.find(function (item) { return item.id === metric.id; }); lines.push('| ' + [markdown(run.id), markdown(run.source.filename + ' / ' + run.source.format), metric.calls, metric.failedCalls, metric.repeatedCalls, metric.messages, run.outcome].join(' | ') + ' |'); });
+    lines.push('', '## Comparison method', '', 'Calls match only when the tool name and full recorded arguments match. Safe JSON arguments use deterministic object-key ordering; JSON with unsafe integers, overflowing numbers, or decimal precision loss instead uses exact original argument text, conservatively retaining formatting. Arrays, values, paths and capitalization remain intact. Transport call IDs do not affect invocation identity. The common prefix compares the ordered tool-call sequence; messages and independent unmatched outputs do not count as calls. Jaccard uses unique invocation sets, with the empty/empty case defined as 1.', '', 'Results pair by exact call ID or tool_use_id, never by proximity or tool name. Reused ambiguous IDs remain unmatched; all source records remain inspectable. hasOutput distinguishes a recorded empty result from no result. Ordinary text mentioning errors does not determine status. Structured exit_code, is_error and status fields are used; Codex terminal wrappers additionally expose an exact reported-exit-code line.', '', 'A same-invocation repeat is not proof of wasted work or a mistake. Operation status is distinct from the overall task outcome. Outcomes are used only when explicitly supplied. This is automatic structural parsing of supplied records, not a semantic-state model, hidden-activation analysis, causal diagnosis, or full reproduction of TraceGraph.', '', '## Preserved evidence', '', 'Canonical JSON export retains full input, output, original source text, source line and parsed source records. Additional features, if supplied by a separate module, are retained as annotations and do not replace the original evidence.', '');
+    (data.warnings || []).forEach(function (warning) { lines.push('- ' + markdown(warning)); });
+    return lines.join('\n') + '\n';
+  }
+  return Object.freeze({ parse: parse, importFiles: importFiles, analyze: analyze, compare: compare, exportJSON: exportJSON, exportMarkdown: exportMarkdown, limits: LIMITS, format: FORMAT });
+});
+</script><script>/* SPDX-License-Identifier: Apache-2.0
+ * Adapted from JunjieNian/TraceGraph, commit
+ * bc830d534b6d75174a7ada89e786f6f5b6b35402, tracegraph/signature.py
+ * and build_mutual_knn_edges in tracegraph/graph_construction.py.
+ * Local changes: browser implementation, evidence provenance, raw-event
+ * adapters, Codex/Windows/relative-path extensions, bounded graph rendering.
+ * See THIRD_PARTY_NOTICES.md for exact scientific and implementation limits.
+ */
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.LensSignatures = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  const SOURCE_COMMIT = 'bc830d534b6d75174a7ada89e786f6f5b6b35402';
+  const COMMANDS = [
+    ['pytest', /\b(pytest|py\.test)\b/], ['python', /\b(python3?|ipython)\b/],
+    ['grep', /\b(grep|rg|ag|ack)\b/], ['find', /\b(find|fd|locate)\b/],
+    ['sed', /\b(sed)\b/], ['cat', /\b(cat|head|tail|less|more)\b/],
+    ['pip', /\b(pip3?|conda)\s+install\b/], ['git', /\b(git)\b/],
+    ['cd', /^\s*cd\b/], ['ls', /\b(ls|dir)\b/], ['echo', /\b(echo|printf)\b/],
+    ['mkdir', /\b(mkdir)\b/], ['rm', /\b(rm|rmdir)\b/], ['curl', /\b(curl|wget)\b/]
+  ];
+  const OBSERVATIONS = [
+    ['OBS:AssertionError', /AssertionError|assert\s+.*failed/i],
+    ['OBS:ImportError', /ImportError|ModuleNotFoundError/i],
+    ['OBS:SyntaxError', /SyntaxError/i], ['OBS:NameError', /NameError/i],
+    ['OBS:TypeError', /TypeError/i], ['OBS:ValueError', /ValueError/i],
+    ['OBS:AttributeError', /AttributeError/i], ['OBS:KeyError', /KeyError/i],
+    ['OBS:IndexError', /IndexError/i], ['OBS:FileNotFoundError', /FileNotFoundError|No such file/i],
+    ['OBS:PermissionError', /PermissionError|Permission denied/i],
+    ['OBS:TimeoutError', /TimeoutError|timed?\s*out/i], ['OBS:RuntimeError', /RuntimeError/i],
+    ['OBS:OSError', /OSError|IOError/i], ['OBS:test_passed', /\bpassed\b.*\btest/i],
+    ['OBS:test_failed', /\bfailed\b.*\btest|\bFAILED\b/i],
+    ['OBS:test_error', /\bERROR\b.*\btest|test.*\bERROR\b/i],
+    ['OBS:traceback', /Traceback \(most recent call last\)/],
+    ['OBS:success', /\bsuccess(?:ful(?:ly)?)?\b/i]
+  ];
+  const DIFFS = [
+    ['DIFF:add_import', /^\+\s*(import |from .* import )/m],
+    ['DIFF:add_function', /^\+\s*def\s+[\p{L}\p{N}_]+/mu],
+    ['DIFF:add_class', /^\+\s*class\s+[\p{L}\p{N}_]+/mu],
+    ['DIFF:add_condition', /^\+\s*(if |elif |else:)/m],
+    ['DIFF:add_try', /^\+\s*(try:|except |finally:)/m],
+    ['DIFF:modify_function', /^[-+]\s*def\s+[\p{L}\p{N}_]+/mu],
+    ['DIFF:add_return', /^\+\s*return\b/m], ['DIFF:add_assert', /^\+\s*assert\b/m]
+  ];
+  const PATH_PATTERN = /(?:^|[\s"'(])(\/[^\s"')]+\.[\p{L}\p{N}_]+)/gmu;
+  // Python's re word boundary includes Unicode letters/numbers; JavaScript's
+  // native \b is ASCII-only. Preserve Python behavior for multilingual logs.
+  const PY_BOUNDARY = '(?:(?<![\\p{L}\\p{N}_])(?=[\\p{L}\\p{N}_])|(?<=[\\p{L}\\p{N}_])(?![\\p{L}\\p{N}_]))';
+  for (const patterns of [COMMANDS, OBSERVATIONS, DIFFS]) for (const row of patterns) {
+    if (row[1].source.includes('\\b')) row[1] = new RegExp(row[1].source.replace(/\\b/g, PY_BOUNDARY), Array.from(new Set(row[1].flags + 'u')).join(''));
+  }
+  const cachedCorpora = new WeakMap();
+  function pythonString(value) {
+    if (typeof value === 'string') return value;
+    if (value === null) return 'None';
+    if (typeof value === 'boolean') return value ? 'True' : 'False';
+    if (Array.isArray(value)) return '[' + value.map(pythonRepr).join(', ') + ']';
+    if (value && typeof value === 'object') return '{' + Object.keys(value).map(k => pythonRepr(k) + ': ' + pythonRepr(value[k])).join(', ') + '}';
+    return String(value);
+  }
+  function pythonRepr(value) {
+    if (typeof value !== 'string') return pythonString(value);
+    const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
+    return quote + value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t').split(quote).join('\\' + quote) + quote;
+  }
+  function calls(message) {
+    if (!message || typeof message !== 'object') return [];
+    if (Array.isArray(message.tool_calls) && message.tool_calls.length) return message.tool_calls;
+    return message.function_call ? [{function: message.function_call}] : [];
+  }
+  function normalisePath(path) {
+    const parts = String(path).trim().replace(/\/+$/, '').split('/');
+    return parts.length >= 2 ? parts.slice(-2).join('/') : parts[0];
+  }
+  function extension(path) {
+    const text = String(path);
+    if (!text.includes('.')) return null;
+    const ext = text.slice(text.lastIndexOf('.') + 1).toLowerCase();
+    return ext.length <= 6 && /^[\p{L}\p{N}]+$/u.test(ext) ? ext : null;
+  }
+  function classifyCommand(command) {
+    for (const [label, pattern] of COMMANDS) if (pattern.test(command)) return label;
+    return 'other';
+  }
+  function observationText(message) {
+    let content = message && Object.hasOwn(message, 'content') ? message.content : '';
+    if (Array.isArray(content)) content = content.map(item => item && typeof item === 'object' && !Array.isArray(item) ? (item.text || '') : pythonString(item)).join(' ');
+    return pythonString(content);
+  }
+  function extractor() {
+    const keys = new Set(), evidence = [], seen = new Set();
+    const add = (key, source, rule, excerpt) => {
+      keys.add(key);
+      const record = {key, source, rule, excerpt: String(excerpt ?? '')};
+      const id = JSON.stringify(record);
+      if (!seen.has(id)) { seen.add(id); evidence.push(record); }
+    };
+    const finish = () => ({keys: Array.from(keys).sort(), evidence});
+    return {add, finish};
+  }
+  function addFile(add, path, rule, original = path) {
+    const ext = extension(path), norm = normalisePath(path);
+    if (ext) add('FILE_EXT:' + ext, 'action', rule, original);
+    if (norm) add('FILE_PATH:' + norm, 'action', rule, original);
+  }
+  function extractWithEvidence(actionMsg, obsMsg, progress, options = {}) {
+    const {add, finish} = extractor();
+    for (const tc of calls(actionMsg)) {
+      const func = tc.function || {}, name = String(func.name || '');
+      const args = Object.hasOwn(func, 'arguments') ? func.arguments : '';
+      const argsText = pythonString(args), lower = name.toLowerCase();
+      if (name) add('TOOL:' + name, 'action', 'tracegraph:tool-name', name);
+      if (lower.includes('bash') || lower.includes('execute')) {
+        const cls = classifyCommand(argsText), pattern = COMMANDS.find(x => x[0] === cls)?.[1];
+        add('CMD:' + cls, 'action', 'tracegraph:command:' + cls, pattern ? (argsText.match(pattern)?.[0] || argsText) : argsText);
+      }
+      const action = lower.includes('str_replace') || lower.includes('edit') ? 'edit'
+        : lower.includes('create') || lower.includes('write') ? 'create'
+        : lower.includes('view') || lower.includes('read') ? 'view'
+        : lower.includes('search') || lower.includes('grep') ? 'search' : null;
+      if (action) add('ACTION:' + action, 'action', 'tracegraph:tool-name-action', name);
+      for (const match of argsText.matchAll(PATH_PATTERN)) addFile(add, match[1], 'tracegraph:absolute-path-pattern', match[1]);
+      if (args && typeof args === 'object' && !Array.isArray(args)) {
+        for (const key of ['path', 'file_path', 'file', 'filename']) {
+          if (typeof args[key] === 'string' && args[key]) addFile(add, args[key], 'tracegraph:argument:' + key);
+        }
+      }
+      const diffText = args && typeof args === 'object' && !Array.isArray(args)
+        ? '+' + (args.new_str || args.replacement || '') + '\n-' + (args.old_str || args.original || '') : argsText;
+      for (const [key, pattern] of DIFFS) {
+        const hit = diffText.match(pattern);
+        if (hit) {
+          const structured = args && typeof args === 'object' && !Array.isArray(args);
+          add(key, 'action', structured ? 'tracegraph:diff-from-replacement' : 'tracegraph:diff-pattern', structured ? hit[0].slice(1) : hit[0]);
+        }
+      }
+      if (options.extensions) extendAction(add, name, args, argsText);
+    }
+    const obsText = observationText(obsMsg);
+    for (const [key, pattern] of OBSERVATIONS) {
+      const hit = obsText.match(pattern);
+      if (hit) add(key, 'observation', 'tracegraph:observation-pattern', hit[0]);
+    }
+    const phase = progress < 1 / 3 ? 'early' : progress < 2 / 3 ? 'mid' : 'late';
+    add('PHASE:' + phase, 'progress', 'tracegraph:temporal-third', String(progress));
+    return finish();
+  }
+  function decodedArguments(args) {
+    if (args && typeof args === 'object') return args;
+    if (typeof args === 'string') { try { return JSON.parse(args); } catch (_) {} }
+    return null;
+  }
+  function extendAction(add, name, args, argsText) {
+    const lower = name.toLowerCase(), decoded = decodedArguments(args);
+    const commandTool = /(?:^|[._:/])(exec_command|write_stdin|shell_command|shell|terminal|run_command)$/.test(lower);
+    // A stdin response need not contain a command; do not invent CMD:other for a poll.
+    if (commandTool && !lower.endsWith('write_stdin')) {
+      const command = decoded && typeof decoded === 'object' ? String(decoded.cmd ?? decoded.command ?? argsText) : argsText;
+      let cls = classifyCommand(command);
+      if (cls === 'other') {
+        if (/\b(node|nodejs)\b/i.test(command)) cls = 'node';
+        else if (/\b(npm|npx|pnpm|yarn)\b/i.test(command)) cls = 'npm';
+        else if (/\b(powershell|pwsh)\b/i.test(command)) cls = 'powershell';
+      }
+      add('CMD:' + cls, 'action', 'lens-extension:command-tool', command);
+    }
+    if (/(?:^|[._:/])(apply_patch|patch)$/.test(lower)) add('ACTION:edit', 'action', 'lens-extension:patch-tool', name);
+    const scanText = decoded && typeof decoded === 'object'
+      ? Object.values(decoded).filter(x => typeof x === 'string').join('\n') : argsText;
+    // Match conventional patch headers, including relative files without an extension.
+    for (const hit of scanText.matchAll(/^\*\*\* (?:Add|Update|Delete) File:\s*(.+)$/gm)) {
+      addFile(add, hit[1].trim().replace(/\\/g, '/'), 'lens-extension:patch-header', hit[1]);
+    }
+    if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) {
+      for (const key of ['path', 'file_path', 'file', 'filename']) {
+        const value = decoded[key];
+        if (typeof value === 'string' && value.trim()) addFile(add, value.replace(/\\/g, '/'), 'lens-extension:decoded-path:' + key, value);
+      }
+    }
+    // Quoted paths may contain spaces. Case is preserved; last-two-components is
+    // upstream's lossy signature, never an assertion of full file identity.
+    const quoted = /["']((?:(?:[A-Za-z]:[\\/]|\.?\.?[\\/]|\/)?)[^"'\r\n]+\.[A-Za-z0-9]{1,6})["']/g;
+    for (const hit of scanText.matchAll(quoted)) {
+      if (!/[\s{}:]/.test(hit[1]) || /^(?:[A-Za-z]:[\\/]|\.?\.?[\\/]|\/)/.test(hit[1])) addFile(add, hit[1].replace(/\\/g, '/'), 'lens-extension:quoted-path', hit[1]);
+    }
+    const tokens = /(?:^|[\s"'(=])((?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|\/)?(?:[\p{L}\p{N}_@.-]+[\\/])*[\p{L}\p{N}_@.-]+\.[A-Za-z0-9]{1,6})(?=$|[\s"'),;\]}])/gmu;
+    for (const hit of scanText.matchAll(tokens)) {
+      const value = hit[1];
+      if (/^\d+(?:\.\d+)+$/.test(value)) continue;
+      addFile(add, value.replace(/\\/g, '/'), 'lens-extension:path-token', value);
+    }
+    // JSON-serialized patches are unescaped before scanning their diff lines.
+    if (decoded && typeof decoded === 'object') {
+      const patch = [decoded.patch, decoded.input, decoded.new_str, decoded.replacement].find(x => typeof x === 'string');
+      if (patch) for (const [key, pattern] of DIFFS) {
+        const replacement = Boolean(decoded.new_str || decoded.replacement);
+        const text = replacement ? '+' + patch : patch;
+        const hit = text.match(pattern);
+        if (hit) add(key, 'action', replacement ? 'lens-extension:decoded-replacement-pattern' : 'lens-extension:decoded-diff-pattern', replacement ? hit[0].slice(1) : hit[0]);
+      }
+    }
+  }
+  function extractSliceKeys(actionMsg, obsMsg, progress, options = {}) {
+    return extractWithEvidence(actionMsg, obsMsg, progress, options).keys;
+  }
+  function extractParsedWithEvidence(step, progress) {
+    const {add, finish} = extractor();
+    if (step.tool_name) add('TOOL:' + step.tool_name, 'action', 'tracegraph:parsed-record:tool_name', step.tool_name);
+    const command = step.command_class ?? 'other';
+    if (command && command !== 'other') add('CMD:' + command, 'action', 'tracegraph:parsed-record:command_class', command);
+    const action = step.action_type ?? 'other';
+    if (action) add('ACTION:' + action, 'action', 'tracegraph:parsed-record:action_type', action);
+    for (const sig of step.observation_signature || []) add('OBS:' + sig, 'observation', 'tracegraph:parsed-record:observation_signature', sig);
+    for (const path of [...(step.files_touched || []), ...(step.files_read || [])]) {
+      if (path.includes('/')) add('FILE_PATH:' + path.split('/').slice(-2).join('/'), 'action', 'tracegraph:parsed-record:files', path);
+      if (path.includes('.')) {
+        const ext = path.slice(path.lastIndexOf('.') + 1);
+        if (ext && ext.length <= 6) add('FILE_EXT:' + ext, 'action', 'tracegraph:parsed-record:files', path);
+      }
+    }
+    const phase = progress <= 0.33 ? 'early' : progress <= 0.67 ? 'mid' : 'late';
+    add('PHASE:' + phase, 'progress', 'tracegraph:parsed-temporal-third', String(progress));
+    return finish();
+  }
+  function extractParsedKeys(step, progress) { return extractParsedWithEvidence(step, progress).keys; }
+  function buildIdfWeights(keySets) {
+    const weights = Object.create(null), frequency = new Map(), n = keySets.length;
+    for (const keys of keySets) for (const key of new Set(keys)) frequency.set(key, (frequency.get(key) || 0) + 1);
+    for (const [key, count] of frequency) weights[key] = Math.log((1 + n) / (1 + count));
+    return weights;
+  }
+  function weightedJaccard(left, right, idf) {
+    const a = new Set(left), b = new Set(right), union = new Set([...a, ...b]);
+    let intersectionWeight = 0, unionWeight = 0;
+    for (const key of union) {
+      const weight = Object.hasOwn(idf, key) ? idf[key] : 1;
+      unionWeight += weight;
+      if (a.has(key) && b.has(key)) intersectionWeight += weight;
+    }
+    return unionWeight > 0 ? intersectionWeight / unionWeight : 0;
+  }
+  function computePairwiseDistances(keySets, idf) {
+    const rows = keySets.map(() => new Float32Array(keySets.length));
+    for (let i = 0; i < rows.length; i++) for (let j = i + 1; j < rows.length; j++) {
+      const distance = Math.fround(1 - weightedJaccard(keySets[i], keySets[j], idf));
+      rows[i][j] = distance; rows[j][i] = distance;
+    }
+    return rows;
+  }
+  function computeKnn(distances, k) {
+    const n = distances.length, count = Math.max(0, Math.min(Math.floor(k), n - 1));
+    return distances.map((row, i) => Array.from({length: n}, (_, j) => j).filter(j => j !== i)
+      .sort((a, b) => row[a] - row[b] || a - b).slice(0, count));
+  }
+  function buildMutualKnnEdges(distances, k = 6, options = {}) {
+    const knn = computeKnn(distances, k), neighbors = knn.map(row => new Set(row)), edges = [];
+    const scale = Math.max(options.distScale ?? 0.35, 0.000001);
+    for (let i = 0; i < knn.length; i++) for (const j of knn[i]) {
+      if (j <= i || !neighbors[j].has(i)) continue;
+      if (options.excludeSameRun && options.sliceRun && options.sliceRun[i] === options.sliceRun[j]) continue;
+      const distance = Math.min(distances[i][j], distances[j][i]);
+      edges.push({source: i, target: j, distance: +distance.toFixed(6), weight: +Math.exp(-distance / scale).toFixed(6)});
+    }
+    return edges;
+  }
+  function findArticulationPoints(adj) {
+    // Iterative Tarjan port of TraceGraph's find_articulation_points. An
+    // articulation is a cut vertex of this graph, not an inferred decision.
+    const n = adj.length, disc = new Int32Array(n).fill(-1), low = new Int32Array(n);
+    const parent = new Int32Array(n).fill(-1), isPoint = new Uint8Array(n);
+    let timer = 0;
+    for (let root = 0; root < n; root++) {
+      if (disc[root] !== -1) continue;
+      disc[root] = low[root] = timer++;
+      let childCount = 0;
+      const stack = [[root, 0]];
+      while (stack.length) {
+        const frame = stack[stack.length - 1], u = frame[0], index = frame[1];
+        if (index < adj[u].length) {
+          frame[1]++;
+          const v = Math.trunc(Number(adj[u][index]));
+          if (!Number.isFinite(v) || v === u || v < 0 || v >= n) continue;
+          if (disc[v] === -1) {
+            parent[v] = u; disc[v] = low[v] = timer++;
+            if (u === root) childCount++;
+            stack.push([v, 0]);
+          } else if (v !== parent[u]) low[u] = Math.min(low[u], disc[v]);
+        } else {
+          stack.pop();
+          if (stack.length) {
+            const p = parent[u]; low[p] = Math.min(low[p], low[u]);
+            if (p !== root && low[u] >= disc[p]) isPoint[p] = 1;
+          }
+        }
+      }
+      if (childCount > 1) isPoint[root] = 1;
+    }
+    return Array.from({length: n}, (_, index) => index).filter(index => isPoint[index]);
+  }
+  function findBiconnectedComponents(adj) {
+    // Iterative Tarjan with an edge stack, matching the pinned implementation.
+    // Articulations may belong to several blocks. Isolated nodes have no block;
+    // a two-node bridge is retained as a trivial block, not a process cluster.
+    const n = adj.length, disc = new Int32Array(n).fill(-1), low = new Int32Array(n);
+    const parent = new Int32Array(n).fill(-1), edgeStack = [], blocks = [];
+    let timer = 0;
+    for (let root = 0; root < n; root++) {
+      if (disc[root] !== -1) continue;
+      disc[root] = low[root] = timer++;
+      const stack = [[root, 0]];
+      while (stack.length) {
+        const frame = stack[stack.length - 1], u = frame[0];
+        let index = frame[1], advanced = false;
+        while (index < adj[u].length) {
+          const v = Math.trunc(Number(adj[u][index++]));
+          if (!Number.isFinite(v) || v === u || v < 0 || v >= n) continue;
+          if (disc[v] === -1) {
+            parent[v] = u; edgeStack.push([u, v]); disc[v] = low[v] = timer++;
+            frame[1] = index; stack.push([v, 0]); advanced = true; break;
+          } else if (v !== parent[u]) {
+            if (disc[v] < disc[u]) edgeStack.push([u, v]);
+            low[u] = Math.min(low[u], disc[v]);
+          }
+        }
+        if (!advanced) {
+          stack.pop();
+          if (stack.length) {
+            const p = parent[u]; low[p] = Math.min(low[p], low[u]);
+            if (low[u] >= disc[p]) {
+              const block = new Set();
+              while (edgeStack.length) {
+                const edge = edgeStack.pop(); block.add(edge[0]); block.add(edge[1]);
+                if (edge[0] === p && edge[1] === u) break;
+              }
+              if (block.size) blocks.push(Array.from(block).sort((a, b) => a - b));
+            }
+          }
+        }
+      }
+    }
+    return blocks;
+  }
+  function isInvocation(event) {
+    return event && event.kind === 'tool' && event.isInvocation !== false && !event.unmatchedOutput && Boolean(event.actionKey);
+  }
+  function eventFeatures(event, progress) {
+    const rawFeatures = extractWithEvidence({tool_calls: [{function: {name: event.tool || 'unknown', arguments: event.inputText || ''}}]},
+      {content: event.outputText || ''}, progress, {extensions: true});
+    const parsed = (event.sourceRecords || []).map(source => source.record).find(record => record &&
+      Object.hasOwn(record, 'raw_action') && (Object.hasOwn(record, 'command_class') || Object.hasOwn(record, 'observation_signature')));
+    if (!parsed) return rawFeatures;
+    const parsedFeatures = extractParsedWithEvidence(parsed, progress);
+    // Parsed TraceGraph exports already carry observable metadata. Retain it
+    // with explicit provenance, while still deriving additional raw-text keys.
+    // Its pipeline uses <= .33/.67; use that phase rather than mixing policies.
+    const rawKeys = rawFeatures.keys.filter(key => !key.startsWith('PHASE:'));
+    return {keys: Array.from(new Set([...rawKeys, ...parsedFeatures.keys])).sort(),
+      evidence: [...rawFeatures.evidence.filter(item => !item.key.startsWith('PHASE:')), ...parsedFeatures.evidence]};
+  }
+  function enrich(data) {
+    const result = {...data, runs: (data.runs || []).map(run => {
+      const invocationCount = (run.events || []).filter(isInvocation).length;
+      let invocationIndex = 0;
+      const events = (run.events || []).map(event => {
+        if (!isInvocation(event)) return {...event};
+        const progress = invocationCount > 1 ? invocationIndex / (invocationCount - 1) : 0;
+        invocationIndex++;
+        return {...event, features: eventFeatures(event, progress)};
+      });
+      return {...run, events};
+    })};
+    cachedCorpora.set(result, collectCorpus(result));
+    return result;
+  }
+  function collectCorpus(data) {
+    const nodes = [];
+    for (const run of data.runs || []) {
+      const events = run.events || [], invocationCount = events.filter(isInvocation).length;
+      let invocationIndex = 0;
+      events.forEach((event, eventIndex) => {
+        if (!isInvocation(event)) return;
+        const progress = invocationCount > 1 ? invocationIndex / (invocationCount - 1) : 0;
+        const features = event.features || eventFeatures(event, progress);
+        invocationIndex++;
+        nodes.push({id: 'slice-' + nodes.length, runId: run.id, eventIndex, keys: features.keys,
+          label: event.label || event.tool || 'Tool call'});
+      });
+    }
+    return {nodes, idf: buildIdfWeights(nodes.map(node => node.keys))};
+  }
+  function corpus(data) { return cachedCorpora.get(data) || collectCorpus(data); }
+  function related(data, runId, eventIndex, options = {}) {
+    const {nodes, idf} = corpus(data), selected = nodes.find(n => n.runId === runId && n.eventIndex === eventIndex);
+    if (!selected) return [];
+    const selectedKeys = new Set(selected.keys), limit = Math.max(0, Math.floor(options.limit ?? 5));
+    return nodes.filter(n => n !== selected && (!options.excludeSameRun || n.runId !== runId)).map(n => ({
+      runId: n.runId, eventIndex: n.eventIndex, similarity: weightedJaccard(selected.keys, n.keys, idf),
+      sharedKeys: n.keys.filter(key => selectedKeys.has(key)).sort()
+    })).filter(n => n.similarity > 0 && n.similarity >= (options.minSimilarity ?? 0))
+      .sort((a, b) => b.similarity - a.similarity || String(a.runId).localeCompare(String(b.runId)) || a.eventIndex - b.eventIndex).slice(0, limit);
+  }
+  function processGraph(data, options = {}) {
+    const {nodes, idf} = corpus(data), maxNodes = Math.max(1, Math.floor(options.maxNodes ?? 300));
+    // Never silently sample; chronology, signatures and related-step search still
+    // use all imported events when the quadratic map exceeds its display limit.
+    if (nodes.length > maxNodes) return {nodes: [], edges: [], blocks: [], articulationPoints: [], idf, limited: true, totalNodes: nodes.length, maxNodes};
+    const distances = computePairwiseDistances(nodes.map(node => node.keys), idf);
+    const edges = buildMutualKnnEdges(distances, options.k ?? 6, {
+      excludeSameRun: options.excludeSameRun, sliceRun: nodes.map(node => node.runId), distScale: 0.35
+    }).map(edge => ({...edge, source: nodes[edge.source].id, target: nodes[edge.target].id,
+      similarity: 1 - distances[edge.source][edge.target]}));
+    // Upstream constructs all mutual-kNN edges. This browser extension hides weak
+    // similarities only after kNN construction; it does not change the neighbors.
+    const visibleEdges = edges.filter(edge => edge.similarity > 0 && edge.similarity >= (options.minSimilarity ?? 0.2));
+    const nodeIndex = new Map(nodes.map((node, index) => [node.id, index])), adjacency = nodes.map(() => []);
+    for (const edge of visibleEdges) {
+      const source = nodeIndex.get(edge.source), target = nodeIndex.get(edge.target);
+      adjacency[source].push(target); adjacency[target].push(source);
+    }
+    const blocks = findBiconnectedComponents(adjacency).map((indices, index) => ({
+      id: 'block-' + index, nodeIds: indices.map(i => nodes[i].id),
+      runIds: Array.from(new Set(indices.map(i => nodes[i].runId))), size: indices.length, trivial: indices.length <= 2
+    }));
+    const articulationPoints = findArticulationPoints(adjacency).map(index => nodes[index].id);
+    return {nodes, edges: visibleEdges, blocks, articulationPoints, idf, limited: false, totalNodes: nodes.length, maxNodes,
+      k: Math.min(options.k ?? 6, Math.max(0, nodes.length - 1)), minSimilarity: options.minSimilarity ?? 0.2};
+  }
+  return {SOURCE_COMMIT, classifyCommand, normalisePath, extractSliceKeys, extractWithEvidence, extractParsedKeys,
+    buildIdfWeights, weightedJaccard, computePairwiseDistances, computeKnn, buildMutualKnnEdges,
+    findArticulationPoints, findBiconnectedComponents,
+    enrich, related, processGraph};
+});
+</script><script>// Synthetic native messages. No state IDs, trajectory labels or task outcomes.
+(() => {
+  const call = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } });
+  const output = (id, exit_code, text) => ({ role: 'tool', tool_call_id: id, content: JSON.stringify({ exit_code, output: text }) });
+  const failure = 'FAILED tests/test_transform.py::test_empty_input\nIndexError: list index out of range\n  src/transform.py:8: first = items[0]\n1 failed, 2 passed';
+  const task = 'transform([]) raises IndexError. It should return an empty list. Fix the bug and run the regression test.';
+  window.TL_DEMO = {
+    name: 'Empty-input bug · two raw repair logs',
+    source: 'Synthetic teaching logs. Commands and results are hand-constructed; no commands were executed by this app.',
+    runs: [
+      { id: 'repeat-the-test', model: 'Example agent A', messages: [
+        { role: 'user', content: task },
+        { role: 'assistant', content: 'I will reproduce the failure.', tool_calls: [call('a1', 'exec_command', { cmd: 'pytest -q tests/test_transform.py' })] },
+        output('a1', 1, failure),
+        { role: 'assistant', content: 'I will look at the test.', tool_calls: [call('a2', 'exec_command', { cmd: 'cat tests/test_transform.py' })] },
+        output('a2', 0, 'from src.transform import transform\n\ndef test_empty_input():\n    assert transform([]) == []'),
+        { role: 'assistant', content: 'Retry the same command to confirm the failure.', tool_calls: [call('a3', 'exec_command', { cmd: 'pytest -q tests/test_transform.py' })] },
+        output('a3', 1, failure),
+        { role: 'assistant', content: 'The same failure is still present. I have not changed the implementation.' }
+      ] },
+      { id: 'inspect-then-patch', model: 'Example agent B', messages: [
+        { role: 'user', content: task },
+        { role: 'assistant', content: 'Inspect the implementation before editing.', tool_calls: [call('b1', 'exec_command', { cmd: 'cat src/transform.py' })] },
+        output('b1', 0, 'def transform(items):\n    first = items[0]\n    return [normalize(first)] + [normalize(x) for x in items[1:]]'),
+        { role: 'assistant', content: 'An empty input needs a guard before indexing.', tool_calls: [call('b2', 'apply_patch', { patch: '*** Begin Patch\n*** Update File: src/transform.py\n@@\n def transform(items):\n+    if not items:\n+        return []\n     first = items[0]\n*** End Patch' })] },
+        output('b2', 0, 'Updated src/transform.py'),
+        { role: 'assistant', content: 'Run the focused regression test.', tool_calls: [call('b3', 'exec_command', { cmd: 'pytest -q tests/test_transform.py' })] },
+        output('b3', 0, '... [100%]\n3 passed in 0.12s'),
+        { role: 'assistant', content: 'The focused regression test now passes.' }
+      ] }
+    ]
+  };
+})();
+</script><script>(() => {
+  'use strict';
+  const en = {
+    skip:'Skip to workspace',repository:'Repository ↗',howItWorks:'How it works',researchWorkspace:'A workspace for agent logs',headline:'What actually happened in this run?',lead:'Turn raw tool calls and outputs into a replayable timeline. No state labels needed.',importLogs:'Import logs',localOnly:'Files stay in this browser',loadExample:'Load example',inspectRun:'Inspect run',compareWith:'Compare with',export:'Export',timeline:'Tool-call timeline',timelineTab:'Timeline',actionMap:'Action map',all:'All',failed:'Failed',repeated:'Repeated',showMessages:'Include messages',recordEvidence:'Recorded evidence',observableFeatures:'Observable features',whatMatches:'What matches?',showFeatureEvidence:'Show extraction evidence',relatedSteps:'Related calls in these logs',relatedExplanation:'Shared file, command, or output signatures. A local comparison of the loaded records.',boundary:'An explicit error belongs to the recorded call. A repeated input can be useful verification. Neither establishes whether the whole task succeeded.',footer:'Read the process, keep the evidence.',formatsMethods:'Formats & methods',importTitle:'Bring your raw logs',importIntro:'Choose one or more JSON / JSONL logs. Supported agent formats are recognized automatically. No annotated states required.',chooseFiles:'Choose files or drop them here',fileLimit:'Up to 10 MB per file, 20 MB in total',pasteInstead:'Or paste a log',downloadExample:'Download raw example',noExecution:'We inspect logs; no commands are executed and no files are uploaded. Refreshing clears imported data.',cancel:'Cancel',inspectLogs:'Inspect logs',methodTitle:'From records to a useful timeline',understood:'Understood',exportTitle:'Keep your analysis',exportIntro:'Exports retain original records and distinguish observed call outcomes from unknown task outcomes.',report:'Markdown report',reportDescription:'Call counts, repeated inputs, first differing call, and limitations',canonical:'Canonical raw JSON',canonicalDescription:'Events, paired results, and original source records',svg:'SVG action map',svgDescription:'Exact invocation nodes and observed call-order edges',synthetic:'Synthetic example',imported:'Imported logs',calls:'calls',errors:'errors',repeats:'repeats',messages:'messages',none:'No comparison',sourceFormat:'Format',paired:'paired outputs',unmatched:'unmatched outputs',warnings:'import notes',unknownTask:'Task outcome unknown',recordedOutcome:'Recorded task outcome',callSequence:'Call sequence comparison',prefix:'same-call prefix',overlap:'exact inputs shared',firstDifference:'First differing call',sameSequence:'Both runs use the same ordered tool invocations.',differentSequence:'Compare the first unequal tool invocation below. Matching uses tool name and full arguments; message wording is not compared.',ended:'Run ended',openCall:'Inspect call',timelineCount:'{shown} shown · {total} recorded tool calls',messageOnly:'No tool calls were recorded. Messages are shown without inventing an action sequence.',noFilterMatches:'No calls match this filter.',noEvents:'No viewable records in this run.',statusOk:'OK',statusError:'Error',statusUnknown:'Unknown',statusPending:'No paired output',repeatLabel:'Repeated input',orphanLabel:'Unmatched output',messageLabel:'Message',callLabel:'Call {n}',eventLabel:'Record {n}',toolInput:'Tool input',pairedOutput:'Paired output',messageContent:'Message content',outputRecord:'Output record',copy:'Copy',copied:'Copied to clipboard.',copyUnavailable:'Clipboard is unavailable here. Select the text or export the JSON.',noOutput:'No paired output is recorded for this call.',originalRecords:'Original source records',sourceRecord:'Source record',line:'line',statusBasis:'Recorded status basis',noFeatureKeys:'No features were extracted for this record.',noRelated:'No related calls with nonzero observable overlap in the loaded logs.',similarity:'overlap',selected:'Selected',mapLimit:'The map is limited to 80 unique invocations for readability. The complete timeline and exports remain available.',mapCount:'{nodes} exact invocation nodes · {edges} observed edges',mapExplanation:'Each node is an exact tool invocation. Arrows follow actual call order; repeated nodes are not inferred states.',chooseOrPaste:'Choose a file or paste a raw log.',loaded:'Loaded {runs} runs with {calls} tool calls.',fileChosen:'{n} files selected',exampleSaved:'Raw example downloaded.',reportSaved:'Report downloaded.',jsonSaved:'Canonical JSON downloaded.',svgSaved:'Action map downloaded.',mapUnavailable:'The action map is unavailable for this dataset. Use the timeline or JSON export.',featuresUnavailable:'Feature extraction is unavailable. Raw records remain usable.',loadFailed:'The workspace could not load. Keep all web files together.',repeatExplanation:'A repeated input is the same tool and canonical arguments after an earlier invocation in this run.',allExplanation:'Calls remain in recorded order. A result is paired only to its matching call identifier or documented source pairing.',failedExplanation:'This filter shows calls with an explicit recorded error or nonzero exit code.',methodsHtml:'<p>This tool answers concrete questions: which command failed, whether the same input was retried, what changed between two runs, and which nearby calls touched the same files or produced similar observable errors.</p><h3>Raw formats</h3><ul><li>OpenAI-style <code>messages</code>, <code>tool_calls</code>, and tool outputs linked by <code>tool_call_id</code>.</li><li>Codex JSONL response items with native calls and outputs.</li><li>Anthropic <code>tool_use</code> / <code>tool_result</code> content blocks.</li><li>TraceGraph parsed rollout records and this tool’s canonical raw JSON.</li></ul><p>Multiple files become separately identifiable runs. Unknown or unpaired records remain visible with import notes. The tool does not run commands, contact an LLM, or upload logs.</p><h3>Exact calls and explicit errors</h3><p>Call comparison uses the exact tool name and canonical arguments. Object key order is normalized; case, command text, and argument values remain significant. Transport IDs identify call/output pairs, not equivalence between invocations.</p><p>Errors use explicit structured status or exit codes and supported documented log wrappers. Text mentioning “failed” does not establish an error or task failure. Repetition is a count, not a quality verdict.</p><h3>Observable TraceGraph signatures</h3><p>Automatic features follow the public TraceGraph symbolic extraction code, with disclosed adapter extensions. Tool, command, file, and observation cues make nearby calls inspectable without state annotations. Each feature keeps extraction evidence.</p><p>Related calls use IDF-weighted Jaccard over the records loaded here. This is observable signature overlap, not semantic equivalence, a causal explanation, or a latent reasoning map. A small loaded set can make similarities unstable. The tool does not reproduce outcome diffusion, traps, BCCs, or paper results.</p><h3>Data boundaries</h3><p>The example is synthetic. Its commands, outputs, and errors were hand-written. Imported original strings are kept as source evidence and are never translated. Data stays in page memory; export it before refreshing.</p>'
+  };
+  const zh = {
+    skip:'跳到工作台',repository:'代码仓库 ↗',howItWorks:'如何使用',researchWorkspace:'Agent 原始日志工作台',headline:'这条运行到底做了什么？',lead:'把原始工具调用与输出整理成可回看的时间线，无需预先标注状态。',importLogs:'导入日志',localOnly:'文件仅在当前浏览器处理',loadExample:'载入示例',inspectRun:'查看运行',compareWith:'对比运行',export:'导出',timeline:'工具调用时间线',timelineTab:'时间线',actionMap:'调用图',all:'全部',failed:'错误',repeated:'重复',showMessages:'包含消息',recordEvidence:'原始记录证据',observableFeatures:'可观察特征',whatMatches:'怎样匹配？',showFeatureEvidence:'查看提取依据',relatedSteps:'这些日志中的相关调用',relatedExplanation:'通过共同文件、命令或输出特征，比较当前已加载的记录。',boundary:'明确的错误状态只属于该次调用。相同输入的重复调用可能是有用的验证，两者都不能单独说明整个任务是否成功。',footer:'查看过程，保留证据。',formatsMethods:'格式与方法',importTitle:'导入原始日志',importIntro:'选择一份或多份 JSON / JSONL 日志，自动识别支持的 Agent 格式，无需标注状态。',chooseFiles:'选择文件，或拖到这里',fileLimit:'每份最多 10 MB，合计最多 20 MB',pasteInstead:'或直接粘贴日志',downloadExample:'下载原始示例',noExecution:'这里只查看记录，不执行命令，不上传文件。刷新页面会清空导入数据。',cancel:'取消',inspectLogs:'查看日志',methodTitle:'从记录整理出有用的时间线',understood:'明白了',exportTitle:'保留你的分析',exportIntro:'导出保留原始记录，并区分调用本身的结果与未知的整体任务结果。',report:'Markdown 分析报告',reportDescription:'调用次数、重复输入、首次不同的调用与方法界限',canonical:'标准化原始 JSON',canonicalDescription:'事件、配对输出及原始来源记录',svg:'SVG 调用图',svgDescription:'精确调用节点与实测调用顺序边',synthetic:'手工构造示例',imported:'导入日志',calls:'调用',errors:'错误',repeats:'重复',messages:'消息',none:'不对比',sourceFormat:'格式',paired:'配对输出',unmatched:'未配对输出',warnings:'条导入提示',unknownTask:'整体任务结果未知',recordedOutcome:'记录的任务结果',callSequence:'调用顺序对比',prefix:'相同调用前缀',overlap:'精确输入重叠',firstDifference:'首次不同的调用',sameSequence:'两条运行使用相同顺序的工具调用。',differentSequence:'下面是首次不相同的工具调用。匹配依据是工具名与完整参数，不比较消息措辞。',ended:'运行已结束',openCall:'查看调用',timelineCount:'显示 {shown} 条 · 共 {total} 次工具调用',messageOnly:'没有记录工具调用。以下显示消息原文，不推测动作顺序。',noFilterMatches:'没有符合该筛选的调用。',noEvents:'这条运行没有可显示的记录。',statusOk:'正常',statusError:'错误',statusUnknown:'未知',statusPending:'无配对输出',repeatLabel:'重复输入',orphanLabel:'未配对输出',messageLabel:'消息',callLabel:'第 {n} 次调用',eventLabel:'第 {n} 条记录',toolInput:'工具输入',pairedOutput:'配对输出',messageContent:'消息内容',outputRecord:'输出记录',copy:'复制',copied:'已复制。',copyUnavailable:'此处无法访问剪贴板。可以选择原文，或导出 JSON。',noOutput:'这次调用没有记录配对输出。',originalRecords:'原始来源记录',sourceRecord:'来源记录',line:'行',statusBasis:'记录的状态依据',noFeatureKeys:'这条记录没有提取到特征。',noRelated:'当前日志中没有可观察特征重叠大于零的相关调用。',similarity:'重叠',selected:'已选中',mapLimit:'为便于阅读，调用图最多显示 80 个不同调用。完整时间线和导出仍可使用。',mapCount:'{nodes} 个精确调用节点 · {edges} 条实测边',mapExplanation:'节点是精确的工具调用，箭头来自实际调用顺序。重复节点不是推测出的状态。',chooseOrPaste:'请选择文件，或粘贴原始日志。',loaded:'已载入 {runs} 条运行，共 {calls} 次工具调用。',fileChosen:'已选择 {n} 份文件',exampleSaved:'已下载原始示例。',reportSaved:'已下载报告。',jsonSaved:'已下载标准化 JSON。',svgSaved:'已下载调用图。',mapUnavailable:'此数据无法显示调用图，请使用时间线或 JSON 导出。',featuresUnavailable:'特征提取暂不可用，原始记录仍可查看。',loadFailed:'工作台未能载入，请将 web 中的文件放在同一目录。',repeatExplanation:'重复输入表示同一次运行中，再次使用相同的工具与标准化参数。',allExplanation:'调用保持记录顺序。只有匹配的调用标识或有文档依据的来源配对规则，才会配对输出。',failedExplanation:'仅显示有明确错误状态或非零退出码的调用。',methodsHtml:'<p>这个工具用于查看具体问题：哪条命令报错、相同输入是否重试、两条运行从哪次调用开始不同，以及哪些调用碰到相同文件或出现相似的可观察错误。</p><h3>原始格式</h3><ul><li>OpenAI 风格的 <code>messages</code>、<code>tool_calls</code>，以及通过 <code>tool_call_id</code> 配对的输出。</li><li>Codex JSONL response items 中的原生调用与输出。</li><li>Anthropic <code>tool_use</code> / <code>tool_result</code> 内容块。</li><li>TraceGraph 已解析 rollout 记录与本工具的标准化原始 JSON。</li></ul><p>多文件导入会保留可区分的运行。未知或无法配对的记录仍可查看，并提供导入提示。不执行命令，不调用模型，不上传日志。</p><h3>精确调用与明确错误</h3><p>调用对比使用精确工具名与标准化参数。对象键顺序会规范化，大小写、命令文本和参数值保留区别。传输 ID 用于配对调用与输出，不用于判定两个调用是否相同。</p><p>错误状态来自明确的结构化状态、退出码或支持的日志封装。文本提及 “failed” 不足以判定调用错误或整体任务失败。重复是计数，不是质量判断。</p><h3>可观察 TraceGraph 特征</h3><p>自动特征沿用公开 TraceGraph 符号提取代码，并披露适配扩展。工具、命令、文件和观察结果线索，让用户不必标注状态，也能找到值得一起查看的调用。每个特征保留提取依据。</p><p>相关调用用当前已加载记录的 IDF 加权 Jaccard 比较。这是可观察特征重叠，不等于语义相同、因果解释或隐含思维地图。样本很小时相似度可能不稳定。不复现结果扩散、trap、BCC 或论文结果。</p><h3>数据界限</h3><p>示例是手工构造的，命令、输出和错误均非实测结果。导入的原文作为来源证据保留，不翻译。数据只在本页内存中，刷新前请导出。</p>'
+  };
+  Object.assign(en, {
+    emptyOutput:'A paired output was recorded with empty content.',
+    headline:'Trajectory Lens',lead:'Inspect raw tool calls, results, and related process steps. No state labels needed.',
+    processMap:'Process map',processExplanation:'One point per call, across all loaded runs. Solid links show shared TraceGraph features; dashed guides show call order.',
+    neighbors:'Neighbors',minimumOverlap:'Min. overlap',structuralBlocks:'Explore graph structure',
+    processAxis:'Left → right: relative call order · Position is a display layout',
+    processCount:'{nodes} calls · {edges} similarity links · {cuts} connection points',
+    processLimit:'{n} calls exceed the 300-call map limit.',processLimitDetail:'The full timeline, features, related calls and JSON export remain available. No calls are sampled.',
+    edgeOverlap:'{n}% IDF-weighted feature overlap',connectionPoint:'Connection point: removing this call splits a connected part of this similarity graph.',
+    connectionPoints:'Connection points (dotted rings)',blocksExplanation:'Select a block to highlight it. Blocks and connection points describe this filtered similarity graph; they change with the controls above.',
+    bridgeBlock:'Bridge {n} · {calls} calls',blockLabel:'Block {n} · {calls} calls · {runs} runs',noBlocks:'No connected blocks at this overlap threshold.',
+    processSvg:'SVG process map',processSvgDescription:'Recorded calls, feature-similarity links and structural connection points',
+    processUnavailable:'The process map is unavailable. Use the complete timeline or JSON export.',processSvgSaved:'Process map downloaded.'
+  });
+  Object.assign(zh, {
+    emptyOutput:'已记录配对输出，内容为空。',
+    headline:'Trajectory Lens',lead:'查看原始工具调用、结果与相关步骤，无需预先标注状态。',
+    processMap:'过程图',processExplanation:'每个点是一次调用，覆盖全部已加载运行。实线表示 TraceGraph 特征联系，虚线引导表示调用顺序。',
+    neighbors:'近邻数',minimumOverlap:'最低重叠',structuralBlocks:'查看图结构',
+    processAxis:'从左到右：相对调用顺序 · 位置仅用于显示布局',
+    processCount:'{nodes} 次调用 · {edges} 条相似边 · {cuts} 个连接点',
+    processLimit:'{n} 次调用超出过程图的 300 节点上限。',processLimitDetail:'完整时间线、特征、相关调用与 JSON 导出仍可使用，不抽样省略调用。',
+    edgeOverlap:'IDF 加权特征重叠 {n}%',connectionPoint:'连接点：移除此调用会拆开相似图中的一块连通区域。',
+    connectionPoints:'连接点（虚线圆环）',blocksExplanation:'选择一个分块可高亮查看。分块与连接点描述当前筛选后的相似图，会随上方设置改变。',
+    bridgeBlock:'桥 {n} · {calls} 次调用',blockLabel:'分块 {n} · {calls} 次调用 · {runs} 条运行',noBlocks:'当前重叠阈值下没有连通分块。',
+    processSvg:'SVG 过程图',processSvgDescription:'原始调用、特征相似边与结构连接点',
+    processUnavailable:'此数据无法显示过程图，请使用完整时间线或 JSON 导出。',processSvgSaved:'已下载过程图。'
+  });
+  en.methodsHtml=en.methodsHtml.replace('The tool does not reproduce outcome diffusion, traps, BCCs, or paper results.', 'The process map uses reciprocal k-nearest neighbors over IDF-weighted Jaccard distance, then hides links below the selected overlap. Biconnected blocks and articulation points follow the pinned TraceGraph algorithms on this filtered undirected graph. Dotted guide lines and relative call-order positions are display aids and do not enter the structural calculation. A block or connection point does not establish a trap, a reward, or a causal effect. The tool does not reproduce outcome diffusion or paper results. The process map is disabled above 300 calls; nothing is sampled.');
+  zh.methodsHtml=zh.methodsHtml.replace('不复现结果扩散、trap、BCC 或论文结果。', '过程图基于 IDF 加权 Jaccard 距离构建互惠近邻边，再按所选重叠阈值隐藏弱联系。双连通分块与割点沿用固定版本 TraceGraph 的算法，作用于当前筛选后的无向相似图。虚线与相对调用位置仅用于显示，不参与结构计算。分块或连接点不能证明陷阱、收益或因果关系，不复现结果扩散或论文结果。超过 300 次调用时禁用过程图，不抽样省略调用。');
+  let language = 'en';
+  function t(key, values={}) { return String((language==='zh'?zh:en)[key]??en[key]??key).replace(/\{(\w+)\}/g, (_,name)=>values[name]??'{'+name+'}'); }
+  function apply(){document.documentElement.lang=language==='zh'?'zh-CN':'en';document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));const b=document.getElementById('language-button');b.textContent=language==='en'?'中文':'EN';b.setAttribute('aria-label',language==='en'?'Switch to Chinese':'Switch to English');}
+  window.TL_I18N = {t,apply,get:()=>language,set:value=>{language=value==='zh'?'zh':'en';apply();document.dispatchEvent(new CustomEvent('lens-language'));}};
+})();
+</script><script>(() => {
+  'use strict';
+  const $=id=>document.getElementById(id), L=window.LensRaw, S=window.LensSignatures, I=window.TL_I18N;
+  const t=(key,values)=>I.t(key,values);
+  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let data,analysis,runId,compareId=null,eventIndex=0,filter='all',view='timeline',isDemo=true,pendingFiles=[],mapReady=false,processReady=false,activeBlock=null;
+  let graphCache=null;
+  const NS='http://www.w3.org/2000/svg';
+  const invocation=e=>e.kind==='tool'&&!!e.actionKey;
+  function run(id=runId){return data.runs.find(r=>r.id===id);}
+  function eventsFor(r){return r.events.map((e,i)=>({e,i}));}
+  function callsFor(r){return eventsFor(r).filter(({e})=>invocation(e));}
+  function selected(){return run().events[eventIndex];}
+  function preview(e,max=180){let text=e.inputText||e.text||e.outputText||'';try{const o=JSON.parse(text);if(o&&typeof o==='object')text=o.cmd||o.command||o.file_path||o.path||o.patch||text;}catch{}text=String(text);return text.length>max?text.slice(0,max-1)+'…':text;}
+  function outputPreview(e){let value=e.outputText||'';try{const o=JSON.parse(value);if(o&&typeof o==='object')value=o.output??o.stdout??o.stderr??value;}catch{}return String(value).replace(/\s+/g,' ').slice(0,170);}
+  function statusName(e){return t({ok:'statusOk',error:'statusError',pending:'statusPending',unknown:'statusUnknown'}[e.status]||'statusUnknown');}
+  function statusBadge(e){return `<span class="status ${esc(e.status||'unknown')}">${esc(statusName(e))}</span>`;}
+  function repeatIndices(r){const seen=new Set(),indices=new Set();r.events.forEach((e,i)=>{if(!invocation(e))return;if(seen.has(e.actionKey))indices.add(i);seen.add(e.actionKey);});return indices;}
+  function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').hidden=true,4000);}
+  function download(name,text,type){const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+  async function copy(text){try{if(!navigator.clipboard)throw new Error();await navigator.clipboard.writeText(text);toast(t('copied'));}catch{toast(t('copyUnavailable'));}}
+  function load(parsed,demo=false){
+    const next=S?S.enrich(parsed):parsed;
+    const nextAnalysis=L.analyze(next);
+    data=next;analysis=nextAnalysis;isDemo=demo;runId=data.runs[0].id;compareId=null;
+    graphCache=null;activeBlock=null;
+    eventIndex=run().events.findIndex(invocation);if(eventIndex<0)eventIndex=0;
+    filter='all';view='timeline';$('show-messages').checked=!callsFor(run()).length;render();
+  }
+  function selectRun(id){if(!data.runs.some(r=>r.id===id))return;if(id===compareId)compareId=runId;runId=id;eventIndex=run().events.findIndex(invocation);if(eventIndex<0)eventIndex=0;filter='all';$('show-messages').checked=!callsFor(run()).length;render();}
+  function selectEvent(id,index){if(!data.runs.some(r=>r.id===id)||!run(id).events[index])return;if(runId!==id){if(compareId===id)compareId=runId;runId=id;filter='all';}eventIndex=index;if(!invocation(selected()))$('show-messages').checked=true;render();const row=$('timeline').querySelector(`[data-event="${index}"]`);if(row&&view==='timeline')row.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  function render(){
+    if(!data)return;
+    I.apply();$('method-content').innerHTML=t('methodsHtml');
+    $('data-kind').textContent=t(isDemo?'synthetic':'imported');$('data-kind').classList.toggle('imported',!isDemo);$('dataset-name').textContent=data.name||'Agent logs';
+    $('run-select').innerHTML=data.runs.map(r=>`<option value="${esc(r.id)}" ${r.id===runId?'selected':''}>${esc(r.name||r.id)}</option>`).join('');
+    $('compare-select').innerHTML=`<option value="">${esc(t('none'))}</option>`+data.runs.filter(r=>r.id!==runId).map(r=>`<option value="${esc(r.id)}" ${r.id===compareId?'selected':''}>${esc(r.name||r.id)}</option>`).join('');
+    if(compareId===runId)compareId=null;
+    const metrics=analysis.perRun.find(r=>r.id===runId);
+    $('export-process-svg').disabled=!S||analysis.totals.calls>300||!analysis.totals.calls;
+    $('run-metrics').innerHTML=['calls','failedCalls','repeatedCalls'].map(key=>`<span><b>${metrics[key]??0}</b>${esc(t({calls:'calls',failedCalls:'errors',repeatedCalls:'repeats'}[key]))}</span>`).join('');
+    const r=run(),calls=callsFor(r),paired=calls.filter(({e})=>e.hasOutput??(e.status!=='pending'&&(e.outputText!==''||e.sourceRecords?.length>1))).length,orphans=r.events.filter(e=>e.unmatchedOutput||e.isInvocation===false&&e.kind==='tool').length;
+    const source=typeof r.source==='object'?r.source:{};
+    $('source-summary').innerHTML=`<span>${esc(t('sourceFormat'))}: <strong>${esc(source.format||data.format||'raw')}</strong>${source.filename?` · ${esc(source.filename)}`:''}</span><span><strong>${paired}</strong> ${esc(t('paired'))}</span><span><strong>${orphans}</strong> ${esc(t('unmatched'))}</span><span>${esc(r.outcome&&r.outcome!=='unknown'?t('recordedOutcome')+': '+r.outcome:t('unknownTask'))}</span>`;
+    const notes=Array.isArray(data.warnings)?data.warnings:[];$('warnings').hidden=!notes.length;$('warning-summary').textContent=`${notes.length} ${t('warnings')}`;$('warning-list').innerHTML=notes.map(n=>`<p>${esc(typeof n==='string'?n:JSON.stringify(n))}</p>`).join('');
+    renderComparison();renderTimeline();renderDetail();drawMap();if(view==='process')drawProcess();
+    $('file-label').textContent=pendingFiles.length?t('fileChosen',{n:pendingFiles.length}):t('chooseFiles');
+  }
+  function renderComparison(){
+    $('comparison').hidden=!compareId;if(!compareId)return;
+    const result=L.compare(run(),run(compareId));
+    $('comparison').innerHTML=`<div class="comparison-top"><h3>${esc(t('callSequence'))}</h3><span class="comparison-stat"><b>${result.commonPrefix}</b>${esc(t('prefix'))}</span><span class="comparison-stat"><b>${result.sharedActions}/${result.totalActions}</b>${esc(t('overlap'))} · ${(result.jaccard*100).toFixed(0)}%</span></div><p class="comparison-note">${esc(t(result.firstDifference?'differentSequence':'sameSequence'))}</p>`;
+    if(result.firstDifference){
+      const d=result.firstDifference;
+      const sides=[{r:run(),i:d.aIndex},{r:run(compareId),i:d.bIndex}];
+      const box=document.createElement('div');box.className='comparison-difference';
+      box.innerHTML=sides.map(({r,i})=>{const e=i==null?null:r.events.find(e=>e.index===i)||r.events[i];return `<button ${e?`data-difference-run="${esc(r.id)}" data-difference-index="${r.events.indexOf(e)}"`:'disabled'}><span>${esc(r.name||r.id)} · ${esc(t('firstDifference'))}</span><strong>${esc(e?.tool||t('ended'))}</strong>${e?`<code>${esc(preview(e,160))}</code>`:''}</button>`;}).join('');
+      $('comparison').append(box);box.querySelectorAll('[data-difference-run]').forEach(b=>b.onclick=()=>selectEvent(b.dataset.differenceRun,+b.dataset.differenceIndex));
+    }
+  }
+  function renderTimeline(){
+    const r=run(),repeated=repeatIndices(r),calls=callsFor(r),numbers=new Map(calls.map(({i},n)=>[i,n+1]));
+    const includeMessages=$('show-messages').checked||!calls.length;
+    const shown=eventsFor(r).filter(({e,i})=>invocation(e)?filter==='all'||filter==='failed'&&e.status==='error'||filter==='repeated'&&repeated.has(i):includeMessages&&filter==='all');
+    document.querySelectorAll('[data-filter]').forEach(b=>{const active=b.dataset.filter===filter;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active);});
+    for(const [id,value] of [['timeline-view','timeline'],['map-view','map'],['process-view','process']]){ $(id).classList.toggle('active',view===value);$(id).setAttribute('aria-pressed',view===value); }
+    $('timeline').hidden=view!=='timeline';$('map-container').hidden=view!=='map';$('process-container').hidden=view!=='process';
+    document.querySelector('.filter-row').hidden=view!=='timeline';$('timeline-explanation').hidden=view!=='timeline';
+    $('view-heading').textContent=t({timeline:'timeline',map:'actionMap',process:'processMap'}[view]);
+    $('timeline-explanation').textContent=calls.length?`${t('timelineCount',{shown:shown.filter(({e})=>invocation(e)).length,total:calls.length})}. ${t({all:'allExplanation',failed:'failedExplanation',repeated:'repeatExplanation'}[filter])}`:t('messageOnly');
+    $('timeline').innerHTML=shown.length?shown.map(({e,i})=>{
+      const tool=invocation(e),orphan=e.kind==='tool'&&!tool;
+      const label=tool?e.tool:orphan?t('orphanLabel'):(e.role||t('messageLabel'));
+      return `<div class="timeline-row ${tool?'':'message-row'}"><span class="call-number">${tool?String(numbers.get(i)).padStart(2,'0'):'·'}</span><button class="event-card ${i===eventIndex?'selected':''}" data-event="${i}" aria-pressed="${i===eventIndex}"><span class="event-title"><span class="tool-name">${esc(label)}</span><span class="event-badges">${tool?statusBadge(e):''}${repeated.has(i)?`<span class="repeat-badge">${esc(t('repeatLabel'))}</span>`:''}</span></span><code class="input-preview">${esc(preview(e,170))}</code>${tool?`<span class="output-preview">${esc(outputPreview(e)||t(e.hasOutput?'emptyOutput':'noOutput'))}</span>`:''}</button></div>`;
+    }).join(''):`<p class="empty">${esc(t(calls.length?'noFilterMatches':'noEvents'))}</p>`;
+    $('timeline').querySelectorAll('[data-event]').forEach(b=>b.onclick=()=>selectEvent(runId,+b.dataset.event));
+  }
+  function renderDetail(){
+    const e=selected();if(!e){$('event-detail').innerHTML=`<p class="empty">${esc(t('noEvents'))}</p>`;$('features-section').hidden=true;$('related-section').hidden=true;return;}
+    const tool=invocation(e),calls=callsFor(run()),number=calls.findIndex(({i})=>i===eventIndex)+1;
+    $('event-location').textContent=`${run().name||runId} · ${t(tool?'callLabel':'eventLabel',{n:tool?number:eventIndex+1})}`;
+    const block=(id,label,text,output=false)=>`<div class="detail-block"><div class="block-label"><span>${esc(label)}</span><button class="text-link" data-copy="${id}">${esc(t('copy'))}</button></div><pre class="code-text ${output?'output':''}" id="${id}">${esc(text)}</pre></div>`;
+    $('event-detail').innerHTML=`<div class="detail-heading"><h2>${esc(tool?e.tool:e.kind==='tool'?t('orphanLabel'):(e.role||t('messageLabel')))}</h2>${tool?statusBadge(e):''}</div>${tool?`<p class="detail-status">${e.statusBasis?`${esc(t('statusBasis'))}: ${esc(typeof e.statusBasis==='string'?e.statusBasis:JSON.stringify(e.statusBasis))}`:esc(t('unknownTask'))}</p>`:''}${tool?block('input-record',t('toolInput'),e.inputText||''):''}${tool?block('output-record',t('pairedOutput'),e.outputText||(e.hasOutput?t('emptyOutput'):t('noOutput')),true):block('message-record',t(e.kind==='tool'?'outputRecord':'messageContent'),e.text||e.outputText||e.inputText||(e.hasOutput?t('emptyOutput'):''),true)}<details class="original-source"><summary>${esc(t('originalRecords'))} · ${e.sourceRecords?.length||0}</summary>${(e.sourceRecords||[]).map((record,n)=>`<p class="source-record-label">${esc(record.type||t('sourceRecord'))}${record.line!=null?` · ${esc(t('line'))} ${record.line}`:''}${record.path?` · ${esc(record.path)}`:''}</p><pre class="code-text">${esc(record.rawText??JSON.stringify(record.record,null,2))}</pre>`).join('')}</details>`;
+    $('event-detail').querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>copy($(b.dataset.copy).textContent));
+    const f=e.features||{},keys=Array.isArray(f.keys)?f.keys:[];
+    $('features-section').hidden=!tool;$('related-section').hidden=!tool;
+    $('feature-keys').innerHTML=keys.length?`<div class="feature-keys">${keys.map(k=>`<span class="feature-key">${esc(k)}</span>`).join('')}</div>`:`<p class="small muted" style="margin-top:10px">${esc(t('noFeatureKeys'))}</p>`;
+    $('feature-evidence').innerHTML=(f.evidence||[]).map(item=>`<div class="feature-evidence-item"><code>${esc(item.key)}</code><p class="excerpt">${esc(item.excerpt||'')}</p><p class="rule">${esc(item.source||'')} · ${esc(item.rule||'')}</p></div>`).join('');
+    const related=tool&&S?S.related(data,runId,eventIndex,{limit:3,excludeSameRun:false}):[];
+    $('related-list').innerHTML=related.length?related.map(item=>{const r=run(item.runId),other=r.events[item.eventIndex],callNumber=callsFor(r).findIndex(v=>v.i===item.eventIndex)+1;return `<button class="related-call" data-related-run="${esc(item.runId)}" data-related-index="${item.eventIndex}"><span class="related-call-head"><strong>${esc(other.tool)} · ${esc(r.name||r.id)}</strong><span>${(item.similarity*100).toFixed(0)}% ${esc(t('similarity'))}</span></span><code>${esc(preview(other,140))}</code><small>${esc(t('callLabel',{n:callNumber}))} · ${esc(item.sharedKeys.join(' · '))}</small></button>`;}).join(''):`<p class="small muted" style="margin-top:12px">${esc(t('noRelated'))}</p>`;
+    $('related-list').querySelectorAll('[data-related-run]').forEach(b=>b.onclick=()=>selectEvent(b.dataset.relatedRun,+b.dataset.relatedIndex));
+  }
+  function svgEl(tag,attrs={},text){const el=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([key,value])=>el.setAttribute(key,value));if(text!=null)el.textContent=text;return el;}
+  function processData(){
+    const k=+$('process-k').value,minSimilarity=+$('process-threshold').value,key=`${k}:${minSimilarity}`;
+    if(!graphCache||graphCache.data!==data||graphCache.key!==key)graphCache={data,key,graph:S.processGraph(data,{k,minSimilarity,maxNodes:300})};
+    return graphCache.graph;
+  }
+  function drawProcess(){
+    const svg=$('process-map');svg.replaceChildren();processReady=false;
+    if(!S){$('process-note').textContent=t('featuresUnavailable');$('export-process-svg').disabled=true;return;}
+    const graph=processData(),blocks=$('process-blocks');blocks.replaceChildren();
+    $('export-process-svg').disabled=graph.limited||!graph.nodes.length;
+    if(graph.limited||!graph.nodes.length){
+      svg.setAttribute('viewBox','0 0 650 150');svg.style.width='100%';svg.style.height='150px';
+      svg.append(svgEl('text',{x:24,y:65,fill:'#716e65','font-family':'DM Sans, sans-serif','font-size':12},t(graph.limited?'processLimit':'messageOnly',{n:graph.totalNodes})));
+      $('process-note').textContent=t(graph.limited?'processLimitDetail':'messageOnly');return;
+    }
+    const runs=data.runs.filter(r=>graph.nodes.some(n=>n.runId===r.id)),maxCalls=Math.max(...runs.map(r=>callsFor(r).length));
+    const w=Math.max(580,Math.min(1600,180+maxCalls*56),$('process-container').clientWidth||0),h=Math.max(240,85+runs.length*122),left=60,right=w-45;
+    svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.style.width=w+'px';svg.style.height=h+'px';
+    svg.append(svgEl('rect',{x:0,y:0,width:w,height:h,fill:'#fffefa'}));
+    const points=new Map(),cuts=new Set(graph.articulationPoints),block=graph.blocks.find(b=>b.id===activeBlock),members=new Set(block?.nodeIds||[]);
+    runs.forEach((r,lane)=>{
+      const y=78+lane*122,calls=callsFor(r);
+      svg.append(svgEl('text',{x:left,y:y-34,fill:r.id===runId?'#8f1d2c':'#716e65','font-family':'DM Sans, sans-serif','font-size':12},`${r.name||r.id} · ${calls.length} ${t('calls')}`));
+      svg.append(svgEl('line',{x1:left,y1:y,x2:right,y2:y,stroke:'#dcd8ce','stroke-width':1,'stroke-dasharray':'3 5',class:'order-guide'}));
+      calls.forEach(({e,i},position)=>{
+        const node=graph.nodes.find(n=>n.runId===r.id&&n.eventIndex===i);
+        const x=calls.length===1?(left+right)/2:left+(right-left)*position/(calls.length-1);
+        points.set(node.id,{x,y,number:position+1,e});
+      });
+    });
+    graph.edges.forEach(edge=>{
+      const a=points.get(edge.source),b=points.get(edge.target),related=edge.source===graph.nodes.find(n=>n.runId===runId&&n.eventIndex===eventIndex)?.id||edge.target===graph.nodes.find(n=>n.runId===runId&&n.eventIndex===eventIndex)?.id;
+      const inBlock=members.has(edge.source)&&members.has(edge.target),lift=a.y===b.y?Math.min(48,Math.abs(b.x-a.x)*.17+15):0;
+      const d=a.y===b.y?`M ${a.x} ${a.y} Q ${(a.x+b.x)/2} ${a.y-lift*2} ${b.x} ${b.y}`:`M ${a.x} ${a.y} C ${a.x} ${(a.y+b.y)/2}, ${b.x} ${(a.y+b.y)/2}, ${b.x} ${b.y}`;
+      const path=svgEl('path',{d,fill:'none',stroke:inBlock?'#8f1d2c':related?'#8f1d2c':'#a89787','stroke-width':related||inBlock?2:1,opacity:activeBlock?(inBlock?.9:.12):related?.8:.3,'data-similarity':edge.similarity});
+      path.append(svgEl('title',{},t('edgeOverlap',{n:(edge.similarity*100).toFixed(1)})));svg.append(path);
+    });
+    graph.nodes.forEach(node=>{
+      const p=points.get(node.id),active=node.runId===runId&&node.eventIndex===eventIndex,color=p.e.status==='error'?'#8f1d2c':p.e.status==='ok'?'#3e6354':'#8c887d';
+      const group=svgEl('g',{class:'process-node',role:'button',tabindex:0,'data-run':node.runId,'data-event':node.eventIndex,'aria-label':`${run(node.runId).name} · ${t('callLabel',{n:p.number})} · ${p.e.tool}`,opacity:activeBlock&&!members.has(node.id)?.28:1});
+      group.append(svgEl('rect',{x:p.x-28,y:p.y-18,width:56,height:53,fill:'transparent',class:'process-hit-area'}));
+      if(cuts.has(node.id))group.append(svgEl('circle',{cx:p.x,cy:p.y,r:13,fill:'none',stroke:'#8a6332','stroke-width':1.4,'stroke-dasharray':'2 2',class:'articulation-ring'}));
+      group.append(svgEl('circle',{cx:p.x,cy:p.y,r:active?9:6,fill:color,stroke:active?'#fffefa':color,'stroke-width':2}));
+      if(active)group.append(svgEl('circle',{cx:p.x,cy:p.y,r:12,fill:'none',stroke:'#8f1d2c','stroke-width':1.5}));
+      const category=node.keys.find(key=>key.startsWith('CMD:'))?.slice(4)||p.e.tool.replace(/^.*[.:]/,'').replace('apply_patch','patch');
+      group.append(svgEl('text',{x:p.x,y:p.y+26,'text-anchor':'middle',fill:'#716e65','font-family':'Consolas, monospace','font-size':10},`${String(p.number).padStart(2,'0')} ${category.slice(0,16)}`));
+      group.append(svgEl('title',{},`${p.e.tool}\n${preview(p.e,180)}\n${statusName(p.e)}${cuts.has(node.id)?'\n'+t('connectionPoint'):''}`));
+      const choose=()=>selectEvent(node.runId,node.eventIndex);group.onclick=choose;group.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}};svg.append(group);
+    });
+    svg.append(svgEl('text',{x:left,y:h-17,fill:'#716e65','font-family':'DM Sans, sans-serif','font-size':10},t('processAxis')));
+    $('process-note').textContent=t('processCount',{nodes:graph.nodes.length,edges:graph.edges.length,cuts:cuts.size});
+    const intro=document.createElement('p');intro.className='small muted';intro.textContent=t('blocksExplanation');blocks.append(intro);
+    const blockList=document.createElement('div');blockList.className='block-list';
+    graph.blocks.forEach((b,i)=>{
+      const button=document.createElement('button');button.className='text-link'+(b.id===activeBlock?' active':'');button.textContent=t(b.trivial?'bridgeBlock':'blockLabel',{n:i+1,calls:b.size,runs:b.runIds.length});button.setAttribute('aria-pressed',b.id===activeBlock);button.onclick=()=>{activeBlock=activeBlock===b.id?null:b.id;drawProcess();};blockList.append(button);
+    });
+    if(!graph.blocks.length)blockList.textContent=t('noBlocks');blocks.append(blockList);
+    if(cuts.size){const label=document.createElement('p');label.className='small muted';label.textContent=t('connectionPoints');blocks.append(label);graph.nodes.filter(n=>cuts.has(n.id)).forEach(node=>{const b=document.createElement('button');b.className='text-link cut-link';b.textContent=`${run(node.runId).name} · ${t('callLabel',{n:points.get(node.id).number})}`;b.onclick=()=>selectEvent(node.runId,node.eventIndex);blocks.append(b);});}
+    processReady=true;
+  }
+  function drawMap(){
+    const svg=$('action-map');svg.replaceChildren();mapReady=false;
+    const usedIds=[runId,...(compareId?[compareId]:[])],nodes=new Map(),edges=new Map(),refs=new Map();
+    usedIds.forEach(id=>{let prev=null;callsFor(run(id)).forEach(({e,i},position)=>{if(!nodes.has(e.actionKey))nodes.set(e.actionKey,{key:e.actionKey,label:e.tool,preview:preview(e,45),refs:[]});nodes.get(e.actionKey).refs.push({runId:id,eventIndex:i,position});if(prev!=null){const pair=JSON.stringify([prev,e.actionKey]);if(!edges.has(pair))edges.set(pair,{source:prev,target:e.actionKey,count:0});edges.get(pair).count++;}prev=e.actionKey;});});
+    $('export-svg').disabled=nodes.size>80||!nodes.size;
+    if(nodes.size>80||!nodes.size){$('map-note').textContent=t(nodes.size>80?'mapLimit':'messageOnly');svg.setAttribute('viewBox','0 0 600 260');return;}
+    const w=Math.max($('map-container').clientWidth,400),cols=w<520?2:3,nw=(w-60-(cols-1)*25)/cols,h=Math.max(300,Math.ceil(nodes.size/cols)*105+45),positions=new Map();svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.style.height=Math.min(h,650)+'px';
+    const bg=svgEl('rect',{x:0,y:0,width:w,height:h,fill:'#fffdf8'});svg.append(bg);
+    const defs=svgEl('defs'),marker=svgEl('marker',{id:'map-arrow',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:5,markerHeight:5,orient:'auto-start-reverse'});marker.append(svgEl('path',{d:'M 0 0 L 10 5 L 0 10 z',fill:'#b09898'}));defs.append(marker);svg.append(defs);
+    [...nodes.values()].forEach((n,i)=>positions.set(n.key,{x:30+(i%cols)*(nw+25)+nw/2,y:45+Math.floor(i/cols)*105}));
+    edges.forEach(edge=>{const a=positions.get(edge.source),b=positions.get(edge.target),d=edge.source===edge.target?`M ${a.x+20} ${a.y-22} C ${a.x+65} ${a.y-75}, ${a.x-65} ${a.y-75}, ${a.x-20} ${a.y-22}`:`M ${a.x} ${a.y+25} C ${a.x} ${a.y+58}, ${b.x} ${b.y-60}, ${b.x} ${b.y-25}`;const p=svgEl('path',{d,fill:'none',stroke:'#b9a3a3','stroke-width':1.2,opacity:.7,'marker-end':'url(#map-arrow)'});p.append(svgEl('title',{},`${edge.count} recorded call-order transitions`));svg.append(p);});
+    nodes.forEach(n=>{const p=positions.get(n.key),active=n.key===selected()?.actionKey,g=svgEl('g',{class:'map-node',role:'button',tabindex:0,'aria-label':n.label+' '+n.preview,transform:`translate(${p.x},${p.y})`});g.append(svgEl('rect',{x:-nw/2,y:-25,width:nw,height:52,rx:3,fill:active?'#f1e7e7':'#f7f5f0',stroke:active?'#7c2d3a':'#dcd8ce','stroke-width':active?2:1}));g.append(svgEl('text',{x:0,y:-6,'text-anchor':'middle',fill:'#7c2d3a','font-family':'DM Sans, sans-serif','font-size':11},n.label));g.append(svgEl('text',{x:0,y:12,'text-anchor':'middle',fill:'#716e65','font-family':'Consolas, monospace','font-size':9},n.preview.length>28?n.preview.slice(0,27)+'…':n.preview));const choose=()=>{const ref=n.refs.find(r=>r.runId===runId)||n.refs[0];selectEvent(ref.runId,ref.eventIndex);};g.onclick=choose;g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose();}};svg.append(g);});
+    $('map-note').textContent=t('mapCount',{nodes:nodes.size,edges:edges.size});mapReady=true;
+  }
+  async function readFiles(fileList){const files=[...fileList];if(files.some(f=>f.size>10*1024*1024)||files.reduce((n,f)=>n+f.size,0)>20*1024*1024)throw new Error(t('fileLimit'));pendingFiles=await Promise.all(files.map(async f=>({name:f.name,text:await f.text()})));$('file-label').textContent=t('fileChosen',{n:pendingFiles.length});$('paste-input').value='';}
+  function importError(error){$('import-error').textContent=error.message||String(error);$('import-error').hidden=false;}
+  function openMethod(){$('method-content').innerHTML=t('methodsHtml');$('method-dialog').showModal();}
+  $('language-button').onclick=()=>I.set(I.get()==='en'?'zh':'en');document.addEventListener('lens-language',render);
+  $('run-select').onchange=e=>selectRun(e.target.value);$('compare-select').onchange=e=>{compareId=e.target.value||null;render();};
+  document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;renderTimeline();});$('show-messages').onchange=renderTimeline;
+  $('timeline-view').onclick=()=>{view='timeline';renderTimeline();};$('map-view').onclick=()=>{view='map';renderTimeline();drawMap();};$('process-view').onclick=()=>{view='process';renderTimeline();drawProcess();};
+  ['process-k','process-threshold'].forEach(id=>$(id).onchange=()=>{activeBlock=null;drawProcess();});
+  $('import-open').onclick=()=>{$('import-error').hidden=true;$('import-dialog').showModal();};
+  $('method-open').onclick=openMethod;$('method-footer').onclick=openMethod;$('feature-help').onclick=openMethod;
+  $('export-open').onclick=()=>{$('export-dialog').showModal();};
+  document.querySelectorAll('.close').forEach(b=>b.onclick=()=>b.closest('dialog').close());
+  document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target!==d)return;const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}));
+  $('file-input').onchange=async e=>{if(e.target.files.length)try{await readFiles(e.target.files);}catch(error){importError(error);}};
+  const drop=$('drop-zone');drop.ondragover=e=>{e.preventDefault();drop.classList.add('dragging');};drop.ondragleave=()=>drop.classList.remove('dragging');drop.ondrop=async e=>{e.preventDefault();drop.classList.remove('dragging');try{if(e.dataTransfer.files.length)await readFiles(e.dataTransfer.files);}catch(error){importError(error);}};
+  $('paste-input').oninput=()=>{if($('paste-input').value.trim()){pendingFiles=[];$('file-input').value='';$('file-label').textContent=t('chooseFiles');}};
+  $('import-confirm').onclick=()=>{try{const pasted=$('paste-input').value;const files=pendingFiles.length?pendingFiles:pasted.trim()?[{name:'pasted-log.json',text:pasted}]:[];if(!files.length)throw new Error(t('chooseOrPaste'));const parsed=L.importFiles(files);load(parsed,false);$('import-dialog').close();pendingFiles=[];$('file-input').value='';$('paste-input').value='';toast(t('loaded',{runs:data.runs.length,calls:analysis.totals.calls}));}catch(error){importError(error);}};
+  $('reset-demo').onclick=()=>load(L.parse(JSON.stringify(window.TL_DEMO),'synthetic-openai.json'),true);
+  $('download-demo').onclick=()=>{download('trajectory-lens-raw-example.json',JSON.stringify(window.TL_DEMO,null,2),'application/json');toast(t('exampleSaved'));};
+  function exportReport(){
+    let report=L.exportMarkdown(data);
+    if(compareId){
+      const a=run(),b=run(compareId),result=L.compare(a,b);
+      report+=`\n\n## Selected call-sequence comparison\n\nRuns: ${a.name||a.id} / ${b.name||b.id}\n\n- Exact common prefix: ${result.commonPrefix} calls\n- Exact invocation-set overlap: ${result.sharedActions}/${result.totalActions} (${(result.jaccard*100).toFixed(1)}%)\n`;
+      if(result.firstDifference){for(const [r,index] of [[a,result.firstDifference.aIndex],[b,result.firstDifference.bIndex]]){const e=index==null?null:r.events.find(e=>e.index===index)||r.events[index];report+=`\n### First differing call in ${r.name||r.id}\n\n${e?`${e.tool} · original event index ${index}\n\n`+e.inputText.split('\n').map(line=>'    '+line).join('\n'):'Run ended before a corresponding call.'}\n`;}}
+      else report+='\nBoth runs have the same ordered invocations. Outputs and messages may differ.\n';
+    }
+    if(S){const graph=processData();report+=`\n\n## Observable TraceGraph process graph\n\nCorpus: all ${graph.totalNodes} imported calls.\n\n`+(graph.limited?'Graph disabled above 300 calls; no sampling.\n':`- Reciprocal neighbors k: ${graph.k}\n- Minimum IDF-weighted overlap: ${graph.minSimilarity}\n- Undirected similarity edges: ${graph.edges.length}\n- Biconnected blocks (including two-node bridges): ${graph.blocks.length}\n- Articulation points: ${graph.articulationPoints.length}\n\nBlocks and points describe the filtered similarity graph. They do not establish reward, failure basins or causal effects. Display coordinates show relative invocation order.\n`);}
+    if(isDemo)report+='\n\n## Example provenance\n\nSynthetic teaching logs. The commands, outputs, and errors are hand-constructed, not experimental measurements.\n';
+    return report;
+  }
+  $('export-report').onclick=()=>{download('trajectory-lens-report.md',exportReport(),'text/markdown;charset=utf-8');$('export-dialog').close();toast(t('reportSaved'));};
+  $('export-json').onclick=()=>{download('trajectory-lens-raw.json',L.exportJSON(data),'application/json');$('export-dialog').close();toast(t('jsonSaved'));};
+  $('export-svg').onclick=()=>{if(!mapReady){toast(t('mapUnavailable'));return;}const svg=$('action-map').cloneNode(true);svg.setAttribute('xmlns',NS);download('trajectory-lens-actions.svg',new XMLSerializer().serializeToString(svg),'image/svg+xml');$('export-dialog').close();toast(t('svgSaved'));};
+  $('export-process-svg').onclick=()=>{drawProcess();if(!processReady){toast(t('processUnavailable'));return;}const svg=$('process-map').cloneNode(true);svg.setAttribute('xmlns',NS);download('trajectory-lens-process.svg',new XMLSerializer().serializeToString(svg),'image/svg+xml');$('export-dialog').close();toast(t('processSvgSaved'));};
+  document.addEventListener('keydown',e=>{if(document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT','BUTTON','A'].includes(e.target.tagName)||e.target.getAttribute('role')==='button')return;const calls=callsFor(run()),pos=calls.findIndex(v=>v.i===eventIndex);if(e.key==='ArrowDown'&&calls[pos+1]){e.preventDefault();selectEvent(runId,calls[pos+1].i);}if(e.key==='ArrowUp'&&pos>0){e.preventDefault();selectEvent(runId,calls[pos-1].i);}});
+  let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(data){drawMap();if(view==='process')drawProcess();}},150);});
+  I.apply();try{if(!L)throw new Error(t('loadFailed'));load(L.parse(JSON.stringify(window.TL_DEMO),'synthetic-openai.json'),true);}catch(error){$('dataset-name').textContent=t('loadFailed');console.error(error);}
+  window.TL_App={getData:()=>data,getAnalysis:()=>analysis,load:input=>load(typeof input==='string'?L.parse(input,'import.json'):input,false),selectRun,selectEvent,setLanguage:I.set,getState:()=>({runId,compareId,eventIndex,filter,view,language:I.get()})};
+})();
+</script>
+</body>
+</html>

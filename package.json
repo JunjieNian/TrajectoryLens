@@ -1,0 +1,13 @@
+{
+  "name": "trajectory-lens",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Inspect raw agent tool calls, outputs and observable TraceGraph signatures without manual state annotations.",
+  "scripts": {
+    "start": "node scripts/serve.cjs",
+    "test": "node scripts/test.cjs",
+    "build": "node scripts/build.cjs"
+  },
+  "engines": { "node": ">=20" },
+  "license": "Apache-2.0"
+}

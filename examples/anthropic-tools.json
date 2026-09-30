@@ -1,0 +1,10 @@
+{
+  "name": "Synthetic Anthropic tool trace",
+  "model": "Demo agent",
+  "messages": [
+    {"role":"user","content":"Synthetic example: inspect and test a function."},
+    {"role":"assistant","content":[{"type":"tool_use","id":"a-read","name":"read_file","input":{"path":"src/transform.py"}},{"type":"tool_use","id":"a-test","name":"bash","input":{"command":"pytest tests/test_transform.py"}}]},
+    {"role":"user","content":[{"type":"tool_result","tool_use_id":"a-test","is_error":true,"content":"FAILED test_empty_items: IndexError"},{"type":"tool_result","tool_use_id":"a-read","is_error":false,"content":"def transform(items): return items[0]"}]},
+    {"role":"assistant","content":"The two tool outputs above are synthetic."}
+  ]
+}

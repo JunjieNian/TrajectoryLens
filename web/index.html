@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Inspect raw agent tool calls, paired outputs, repeated invocations, and observable TraceGraph signatures in your browser.">
+  <title>Trajectory Lens</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Skip to workspace</a>
+<header class="site-header">
+  <a href="./index.html" class="wordmark">Trajectory <span>Lens</span><small>0.2</small></a>
+  <nav aria-label="Workspace navigation">
+    <a href="https://github.com/JunjieNian/TrajectoryLens" target="_blank" rel="noopener" data-i18n="repository">Repository ↗</a>
+    <button class="plain" id="method-open" data-i18n="howItWorks">How it works</button>
+    <button class="language" id="language-button" aria-label="Switch to Chinese">中文</button>
+  </nav>
+</header>
+<main id="main">
+  <section class="intro">
+    <p class="kicker" data-i18n="researchWorkspace">A workspace for agent logs</p>
+    <div class="intro-row"><div><h1 data-i18n="headline">Trajectory Lens</h1><p class="lead" data-i18n="lead">Inspect raw tool calls, results, and related process steps. No state labels needed.</p></div><button class="primary" id="import-open" data-i18n="importLogs">Import logs</button></div>
+  </section>
+  <div class="dataset-line"><span class="dataset-badge" id="data-kind"></span><strong id="dataset-name"></strong><span class="local-note" data-i18n="localOnly">Files stay in this browser</span><button class="text-link" id="reset-demo" data-i18n="loadExample">Load example</button></div>
+  <section class="run-toolbar" aria-label="Run selection">
+    <label><span data-i18n="inspectRun">Inspect run</span><select id="run-select"></select></label>
+    <label><span data-i18n="compareWith">Compare with</span><select id="compare-select"></select></label>
+    <div id="run-metrics" class="run-metrics" aria-live="polite"></div>
+    <button class="secondary" id="export-open" data-i18n="export">Export</button>
+  </section>
+  <div class="source-summary" id="source-summary"></div>
+  <details id="warnings" class="warnings" hidden><summary id="warning-summary"></summary><div id="warning-list"></div></details>
+  <section class="comparison" id="comparison" hidden aria-label="Invocation sequence comparison"></section>
+  <div class="work-grid">
+    <section class="timeline-panel" aria-label="Chronological log">
+      <div class="panel-top"><h2 id="view-heading">Tool-call timeline</h2><div class="view-buttons"><button id="timeline-view" class="active" aria-pressed="true" data-i18n="timelineTab">Timeline</button><button id="process-view" aria-pressed="false" data-i18n="processMap">Process map</button><button id="map-view" aria-pressed="false" data-i18n="actionMap">Action map</button></div></div>
+      <div class="filter-row"><div role="group" aria-label="Filter calls" class="filter-buttons"><button data-filter="all" class="active" aria-pressed="true" data-i18n="all">All</button><button data-filter="failed" aria-pressed="false" data-i18n="failed">Failed</button><button data-filter="repeated" aria-pressed="false" data-i18n="repeated">Repeated</button></div><label class="messages-toggle"><input type="checkbox" id="show-messages"><span data-i18n="showMessages">Include messages</span></label></div>
+      <p class="timeline-explanation" id="timeline-explanation"></p>
+      <div id="timeline" class="timeline-list" aria-live="polite"></div>
+      <div id="map-container" class="map-container" hidden><p class="map-caption" data-i18n="mapExplanation">Each node is an exact tool invocation. Arrows follow actual call order; repeated nodes are not inferred states.</p><svg id="action-map" role="img" aria-label="Exact tool invocation map"></svg><p id="map-note" class="muted small"></p></div>
+      <div id="process-container" class="map-container" hidden><p class="map-caption" data-i18n="processExplanation">Each point is a recorded call. Similarity links come from automatically extracted TraceGraph signatures.</p><div class="process-settings"><label><span data-i18n="neighbors">Neighbors</span><select id="process-k"><option value="3">3</option><option value="6" selected>6</option><option value="10">10</option></select></label><label><span data-i18n="minimumOverlap">Minimum overlap</span><select id="process-threshold"><option value="0">0%</option><option value="0.2" selected>20%</option><option value="0.4">40%</option><option value="0.6">60%</option></select></label></div><div class="process-scroll"><svg id="process-map" role="img" aria-label="TraceGraph observable process map"></svg></div><p id="process-note" class="muted small" aria-live="polite"></p><details class="process-blocks"><summary data-i18n="structuralBlocks">Structural blocks and connection points</summary><div id="process-blocks"></div></details></div>
+    </section>
+    <aside class="inspector" aria-label="Selected event details">
+      <div class="inspector-top"><p class="kicker" data-i18n="recordEvidence">Recorded evidence</p><span id="event-location" class="mono"></span></div>
+      <div id="event-detail"></div>
+      <details class="features-section" id="features-section"><summary data-i18n="observableFeatures">Observable features</summary><button class="text-link" id="feature-help" data-i18n="whatMatches">What matches?</button><div id="feature-keys"></div><details class="feature-evidence"><summary data-i18n="showFeatureEvidence">Show extraction evidence</summary><div id="feature-evidence"></div></details></details>
+      <section class="related-section" id="related-section"><h3 data-i18n="relatedSteps">Related calls in these logs</h3><p class="small muted" data-i18n="relatedExplanation">Shared file, command, or output signatures. A local comparison of the loaded records.</p><div id="related-list"></div></section>
+    </aside>
+  </div>
+</main>
+<footer><span>Trajectory Lens · Junjie Nian</span><span data-i18n="footer">Read the process, keep the evidence.</span><button class="text-link" id="method-footer" data-i18n="formatsMethods">Formats & methods</button></footer>
+<dialog id="import-dialog"><div class="dialog-head"><h2 data-i18n="importTitle">Bring your raw logs</h2><button class="close" aria-label="Close">×</button></div><p data-i18n="importIntro">Choose one or more JSON / JSONL logs. OpenAI-style messages and supported Codex logs are recognized automatically. No annotated states required.</p><label class="file-zone" id="drop-zone"><input type="file" id="file-input" accept=".json,.jsonl,.ndjson,.traj,.txt,application/json" multiple><strong id="file-label" data-i18n="chooseFiles">Choose files or drop them here</strong><span data-i18n="fileLimit">Up to 10 MB per file, 20 MB in total</span></label><div class="paste-heading"><label for="paste-input" data-i18n="pasteInstead">Or paste a log</label><button class="text-link" id="download-demo" data-i18n="downloadExample">Download raw example</button></div><textarea id="paste-input" rows="8" spellcheck="false" placeholder='{"messages":[{"role":"assistant","tool_calls":[{"id":"call-1","function":{"name":"exec_command","arguments":"{\"cmd\":\"pytest -q\"}"}}]},{"role":"tool","tool_call_id":"call-1","content":"{\"exit_code\":1,\"output\":\"1 failed\"}"}]}'></textarea><p class="small muted" data-i18n="noExecution">We inspect logs; no commands are executed and no files are uploaded. Refreshing clears imported data.</p><p class="error" id="import-error" role="alert" hidden></p><div class="dialog-actions"><button class="secondary close" data-i18n="cancel">Cancel</button><button class="primary" id="import-confirm" data-i18n="inspectLogs">Inspect logs</button></div></dialog>
+<dialog id="method-dialog"><div class="dialog-head"><h2 data-i18n="methodTitle">From records to a useful timeline</h2><button class="close" aria-label="Close">×</button></div><div id="method-content"></div><div class="dialog-actions"><button class="primary close" data-i18n="understood">Understood</button></div></dialog>
+<dialog id="export-dialog"><div class="dialog-head"><h2 data-i18n="exportTitle">Keep your analysis</h2><button class="close" aria-label="Close">×</button></div><p data-i18n="exportIntro">Exports retain original records and distinguish observed call outcomes from unknown task outcomes.</p><div class="export-options"><button id="export-report"><strong data-i18n="report">Markdown report</strong><span data-i18n="reportDescription">Call counts, repeated inputs, first differing call, and limitations</span></button><button id="export-json"><strong data-i18n="canonical">Canonical raw JSON</strong><span data-i18n="canonicalDescription">Events, paired results, and original source records</span></button><button id="export-svg"><strong data-i18n="svg">SVG action map</strong><span data-i18n="svgDescription">Exact invocation nodes and observed call-order edges</span></button><button id="export-process-svg"><strong data-i18n="processSvg">SVG process map</strong><span data-i18n="processSvgDescription">Automatically extracted similarities between recorded calls</span></button></div></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+<script src="raw.js"></script><script src="signatures.js"></script><script src="demo.js"></script><script src="i18n.js"></script><script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+.reference/
+work/
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+private-traces/

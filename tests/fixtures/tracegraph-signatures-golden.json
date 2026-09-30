@@ -1,0 +1,1047 @@
+{
+  "source_commit": "bc830d534b6d75174a7ada89e786f6f5b6b35402",
+  "source_files": [
+    "tracegraph/signature.py",
+    "tracegraph/graph_construction.py",
+    "scripts/pipeline/extract_signatures.py"
+  ],
+  "cases": [
+    {
+      "name": "bash classification precedence and error",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "bash",
+              "arguments": "python -m pytest /repo/tests/test_case.py"
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": "Traceback (most recent call last)\nAssertionError: expected 2\n1 failed test"
+      },
+      "progress": 0,
+      "keys": [
+        "CMD:pytest",
+        "FILE_EXT:py",
+        "FILE_PATH:tests/test_case.py",
+        "OBS:AssertionError",
+        "OBS:test_failed",
+        "OBS:traceback",
+        "PHASE:early",
+        "TOOL:bash"
+      ]
+    },
+    {
+      "name": "structured replace and file",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "str_replace_editor",
+              "arguments": {
+                "path": "/repo/pkg/math.py",
+                "old_str": "def old():\n    pass",
+                "new_str": "def new():\n    return 2"
+              }
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": "successfully changed"
+      },
+      "progress": 0.5,
+      "keys": [
+        "ACTION:edit",
+        "DIFF:add_function",
+        "DIFF:modify_function",
+        "FILE_EXT:py",
+        "FILE_PATH:pkg/math.py",
+        "OBS:success",
+        "PHASE:mid",
+        "TOOL:str_replace_editor"
+      ]
+    },
+    {
+      "name": "legacy function and relative argument",
+      "action": {
+        "function_call": {
+          "name": "read_file",
+          "arguments": {
+            "file_path": "src/INDEX.TS"
+          }
+        }
+      },
+      "observation": {
+        "content": [
+          {
+            "text": "module imported"
+          },
+          {
+            "text": "TypeError in documentation"
+          }
+        ]
+      },
+      "progress": 1,
+      "keys": [
+        "ACTION:view",
+        "FILE_EXT:ts",
+        "FILE_PATH:src/INDEX.TS",
+        "OBS:TypeError",
+        "PHASE:late",
+        "TOOL:read_file"
+      ]
+    },
+    {
+      "name": "patch operations",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "edit",
+              "arguments": "+import os\n+class A:\n+if ready:\n+try:\n+return x\n+assert x\n-def old():\n /repo/main.py"
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": "test ERROR\nNo such file\nPermission denied\ntimed out"
+      },
+      "progress": 0.3333333333333333,
+      "keys": [
+        "ACTION:edit",
+        "DIFF:add_assert",
+        "DIFF:add_class",
+        "DIFF:add_condition",
+        "DIFF:add_import",
+        "DIFF:add_return",
+        "DIFF:add_try",
+        "DIFF:modify_function",
+        "FILE_EXT:py",
+        "FILE_PATH:repo/main.py",
+        "OBS:FileNotFoundError",
+        "OBS:PermissionError",
+        "OBS:TimeoutError",
+        "OBS:test_error",
+        "PHASE:mid",
+        "TOOL:edit"
+      ]
+    },
+    {
+      "name": "multiple tools",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "execute",
+              "arguments": {
+                "cmd": "rg token /repo/main.py"
+              }
+            }
+          },
+          {
+            "function": {
+              "name": "create_file",
+              "arguments": {
+                "filename": "newfile"
+              }
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": "5 passed tests"
+      },
+      "progress": 0.6666666666666666,
+      "keys": [
+        "ACTION:create",
+        "CMD:grep",
+        "FILE_EXT:py",
+        "FILE_PATH:newfile",
+        "FILE_PATH:repo/main.py",
+        "OBS:test_passed",
+        "PHASE:late",
+        "TOOL:create_file",
+        "TOOL:execute"
+      ]
+    },
+    {
+      "name": "unclassified and null observation",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "bash",
+              "arguments": "unknown-command"
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": null
+      },
+      "progress": 0.99,
+      "keys": [
+        "CMD:other",
+        "PHASE:late",
+        "TOOL:bash"
+      ]
+    },
+    {
+      "name": "empty singleton",
+      "action": {},
+      "observation": {},
+      "progress": 0,
+      "keys": [
+        "PHASE:early"
+      ]
+    },
+    {
+      "name": "unicode boundary is not ASCII boundary",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "bash",
+              "arguments": "运行pytest命令"
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": "这是FAILED消息 与success一起"
+      },
+      "progress": 0.33,
+      "keys": [
+        "CMD:other",
+        "PHASE:early",
+        "TOOL:bash"
+      ]
+    },
+    {
+      "name": "Unicode function and path",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "edit",
+              "arguments": "+def 函数():\n /工程/测试.文件"
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": "IndexError KeyError NameError OSError ValueError ImportError SyntaxError AttributeError RuntimeError"
+      },
+      "progress": 0.67,
+      "keys": [
+        "ACTION:edit",
+        "DIFF:add_function",
+        "DIFF:modify_function",
+        "FILE_EXT:文件",
+        "FILE_PATH:工程/测试.文件",
+        "OBS:AttributeError",
+        "OBS:ImportError",
+        "OBS:IndexError",
+        "OBS:KeyError",
+        "OBS:NameError",
+        "OBS:OSError",
+        "OBS:RuntimeError",
+        "OBS:SyntaxError",
+        "OBS:ValueError",
+        "PHASE:late",
+        "TOOL:edit"
+      ]
+    },
+    {
+      "name": "Windows paths preserve strict behavior",
+      "action": {
+        "tool_calls": [
+          {
+            "function": {
+              "name": "read",
+              "arguments": {
+                "path": "D:\\Repo\\MixedCase.PY"
+              }
+            }
+          }
+        ]
+      },
+      "observation": {
+        "content": "AssertionError mentioned; all tests passed"
+      },
+      "progress": 0.1,
+      "keys": [
+        "ACTION:view",
+        "FILE_EXT:py",
+        "FILE_PATH:D:\\Repo\\MixedCase.PY",
+        "OBS:AssertionError",
+        "PHASE:early",
+        "TOOL:read"
+      ]
+    }
+  ],
+  "parsed_cases": [
+    {
+      "name": "pipeline metadata",
+      "step": {
+        "tool_name": "terminal",
+        "command_class": "pytest",
+        "action_type": "test",
+        "observation_signature": [
+          "test_failed",
+          "AssertionError"
+        ],
+        "files_read": [
+          "src/MAIN.PY",
+          "single.py"
+        ],
+        "files_touched": [
+          "pkg/edited.py"
+        ]
+      },
+      "progress": 0.33,
+      "keys": [
+        "ACTION:test",
+        "CMD:pytest",
+        "FILE_EXT:PY",
+        "FILE_EXT:py",
+        "FILE_PATH:pkg/edited.py",
+        "FILE_PATH:src/MAIN.PY",
+        "OBS:AssertionError",
+        "OBS:test_failed",
+        "PHASE:early",
+        "TOOL:terminal"
+      ]
+    },
+    {
+      "name": "pipeline other defaults",
+      "step": {},
+      "progress": 0.67,
+      "keys": [
+        "ACTION:other",
+        "PHASE:mid"
+      ]
+    },
+    {
+      "name": "pipeline late",
+      "step": {
+        "tool_name": "read_file",
+        "command_class": "other",
+        "action_type": "",
+        "files_read": [
+          "no-extension"
+        ]
+      },
+      "progress": 0.671,
+      "keys": [
+        "PHASE:late",
+        "TOOL:read_file"
+      ]
+    }
+  ],
+  "idf": {
+    "PHASE:early": 0.7884573603642703,
+    "TOOL:bash": 1.0116009116784799,
+    "OBS:traceback": 1.7047480922384253,
+    "CMD:pytest": 1.7047480922384253,
+    "OBS:AssertionError": 1.2992829841302609,
+    "OBS:test_failed": 1.7047480922384253,
+    "FILE_PATH:tests/test_case.py": 1.7047480922384253,
+    "FILE_EXT:py": 0.6061358035703155,
+    "FILE_PATH:pkg/math.py": 1.7047480922384253,
+    "OBS:success": 1.7047480922384253,
+    "TOOL:str_replace_editor": 1.7047480922384253,
+    "ACTION:edit": 1.0116009116784799,
+    "DIFF:modify_function": 1.0116009116784799,
+    "PHASE:mid": 1.2992829841302609,
+    "DIFF:add_function": 1.2992829841302609,
+    "ACTION:view": 1.2992829841302609,
+    "FILE_PATH:src/INDEX.TS": 1.7047480922384253,
+    "OBS:TypeError": 1.7047480922384253,
+    "FILE_EXT:ts": 1.7047480922384253,
+    "TOOL:read_file": 1.7047480922384253,
+    "PHASE:late": 0.7884573603642703,
+    "TOOL:edit": 1.2992829841302609,
+    "OBS:FileNotFoundError": 1.7047480922384253,
+    "OBS:test_error": 1.7047480922384253,
+    "DIFF:add_condition": 1.7047480922384253,
+    "DIFF:add_assert": 1.7047480922384253,
+    "OBS:TimeoutError": 1.7047480922384253,
+    "DIFF:add_import": 1.7047480922384253,
+    "OBS:PermissionError": 1.7047480922384253,
+    "DIFF:add_class": 1.7047480922384253,
+    "DIFF:add_return": 1.7047480922384253,
+    "FILE_PATH:repo/main.py": 1.2992829841302609,
+    "DIFF:add_try": 1.7047480922384253,
+    "ACTION:create": 1.7047480922384253,
+    "FILE_PATH:newfile": 1.7047480922384253,
+    "TOOL:execute": 1.7047480922384253,
+    "TOOL:create_file": 1.7047480922384253,
+    "OBS:test_passed": 1.7047480922384253,
+    "CMD:grep": 1.7047480922384253,
+    "CMD:other": 1.2992829841302609,
+    "OBS:NameError": 1.7047480922384253,
+    "FILE_PATH:工程/测试.文件": 1.7047480922384253,
+    "OBS:ValueError": 1.7047480922384253,
+    "OBS:AttributeError": 1.7047480922384253,
+    "OBS:SyntaxError": 1.7047480922384253,
+    "OBS:OSError": 1.7047480922384253,
+    "OBS:RuntimeError": 1.7047480922384253,
+    "FILE_EXT:文件": 1.7047480922384253,
+    "OBS:ImportError": 1.7047480922384253,
+    "OBS:KeyError": 1.7047480922384253,
+    "OBS:IndexError": 1.7047480922384253,
+    "FILE_PATH:D:\\Repo\\MixedCase.PY": 1.7047480922384253,
+    "TOOL:read": 1.7047480922384253
+  },
+  "distances": [
+    [
+      0.0,
+      0.9700828790664673,
+      1.0,
+      0.9819025993347168,
+      0.9734624624252319,
+      0.9197919368743896,
+      0.9250833988189697,
+      0.8477591276168823,
+      1.0,
+      0.8231581449508667
+    ],
+    [
+      0.9700828790664673,
+      0.0,
+      1.0,
+      0.868994414806366,
+      0.9732489585876465,
+      1.0,
+      1.0,
+      1.0,
+      0.8934490084648132,
+      0.9646334052085876
+    ],
+    [
+      1.0,
+      1.0,
+      0.0,
+      1.0,
+      0.9625269174575806,
+      0.9297125935554504,
+      1.0,
+      1.0,
+      0.9755749702453613,
+      0.9134394526481628
+    ],
+    [
+      0.9819025993347168,
+      0.868994414806366,
+      1.0,
+      0.0,
+      0.9449167251586914,
+      1.0,
+      1.0,
+      1.0,
+      0.9251939058303833,
+      0.9800423979759216
+    ],
+    [
+      0.9734624624252319,
+      0.9732489585876465,
+      0.9625269174575806,
+      0.9449167251586914,
+      0.0,
+      0.9482409954071045,
+      1.0,
+      1.0,
+      0.9782772064208984,
+      0.9692611694335938
+    ],
+    [
+      0.9197919368743896,
+      1.0,
+      0.9297125935554504,
+      1.0,
+      0.9482409954071045,
+      0.0,
+      1.0,
+      0.40560606122016907,
+      0.9702169299125671,
+      1.0
+    ],
+    [
+      0.9250833988189697,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.0,
+      0.7456048727035522,
+      1.0,
+      0.8934898972511292
+    ],
+    [
+      0.8477591276168823,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.40560606122016907,
+      0.7456048727035522,
+      0.0,
+      1.0,
+      0.9188290238380432
+    ],
+    [
+      1.0,
+      0.8934490084648132,
+      0.9755749702453613,
+      0.9251939058303833,
+      0.9782772064208984,
+      0.9702169299125671,
+      1.0,
+      1.0,
+      0.0,
+      1.0
+    ],
+    [
+      0.8231581449508667,
+      0.9646334052085876,
+      0.9134394526481628,
+      0.9800423979759216,
+      0.9692611694335938,
+      1.0,
+      0.8934898972511292,
+      0.9188290238380432,
+      1.0,
+      0.0
+    ]
+  ],
+  "mutual_edges": [
+    {
+      "source": 0,
+      "target": 1,
+      "weight": 0.062558,
+      "distance": 0.970083
+    },
+    {
+      "source": 0,
+      "target": 2,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 0,
+      "target": 3,
+      "weight": 0.06048,
+      "distance": 0.981903
+    },
+    {
+      "source": 0,
+      "target": 4,
+      "weight": 0.061957,
+      "distance": 0.973462
+    },
+    {
+      "source": 0,
+      "target": 5,
+      "weight": 0.072224,
+      "distance": 0.919792
+    },
+    {
+      "source": 0,
+      "target": 6,
+      "weight": 0.071141,
+      "distance": 0.925083
+    },
+    {
+      "source": 0,
+      "target": 7,
+      "weight": 0.088729,
+      "distance": 0.847759
+    },
+    {
+      "source": 0,
+      "target": 8,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 0,
+      "target": 9,
+      "weight": 0.09519,
+      "distance": 0.823158
+    },
+    {
+      "source": 1,
+      "target": 2,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 1,
+      "target": 3,
+      "weight": 0.083506,
+      "distance": 0.868994
+    },
+    {
+      "source": 1,
+      "target": 4,
+      "weight": 0.061994,
+      "distance": 0.973249
+    },
+    {
+      "source": 1,
+      "target": 5,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 1,
+      "target": 6,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 1,
+      "target": 7,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 1,
+      "target": 8,
+      "weight": 0.07787,
+      "distance": 0.893449
+    },
+    {
+      "source": 1,
+      "target": 9,
+      "weight": 0.063539,
+      "distance": 0.964633
+    },
+    {
+      "source": 2,
+      "target": 3,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 2,
+      "target": 4,
+      "weight": 0.063923,
+      "distance": 0.962527
+    },
+    {
+      "source": 2,
+      "target": 5,
+      "weight": 0.070206,
+      "distance": 0.929713
+    },
+    {
+      "source": 2,
+      "target": 6,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 2,
+      "target": 7,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 2,
+      "target": 8,
+      "weight": 0.061584,
+      "distance": 0.975575
+    },
+    {
+      "source": 2,
+      "target": 9,
+      "weight": 0.073547,
+      "distance": 0.913439
+    },
+    {
+      "source": 3,
+      "target": 4,
+      "weight": 0.067222,
+      "distance": 0.944917
+    },
+    {
+      "source": 3,
+      "target": 5,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 3,
+      "target": 6,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 3,
+      "target": 7,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 3,
+      "target": 8,
+      "weight": 0.071118,
+      "distance": 0.925194
+    },
+    {
+      "source": 3,
+      "target": 9,
+      "weight": 0.060803,
+      "distance": 0.980042
+    },
+    {
+      "source": 4,
+      "target": 5,
+      "weight": 0.066586,
+      "distance": 0.948241
+    },
+    {
+      "source": 4,
+      "target": 6,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 4,
+      "target": 7,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 4,
+      "target": 8,
+      "weight": 0.06111,
+      "distance": 0.978277
+    },
+    {
+      "source": 4,
+      "target": 9,
+      "weight": 0.062705,
+      "distance": 0.969261
+    },
+    {
+      "source": 5,
+      "target": 6,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 5,
+      "target": 7,
+      "weight": 0.313839,
+      "distance": 0.405606
+    },
+    {
+      "source": 5,
+      "target": 8,
+      "weight": 0.062534,
+      "distance": 0.970217
+    },
+    {
+      "source": 5,
+      "target": 9,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 6,
+      "target": 7,
+      "weight": 0.118802,
+      "distance": 0.745605
+    },
+    {
+      "source": 6,
+      "target": 8,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 6,
+      "target": 9,
+      "weight": 0.077861,
+      "distance": 0.89349
+    },
+    {
+      "source": 7,
+      "target": 8,
+      "weight": 0.057433,
+      "distance": 1.0
+    },
+    {
+      "source": 7,
+      "target": 9,
+      "weight": 0.072423,
+      "distance": 0.918829
+    },
+    {
+      "source": 8,
+      "target": 9,
+      "weight": 0.057433,
+      "distance": 1.0
+    }
+  ],
+  "bcc_cases": [
+    {
+      "name": "empty",
+      "adjacency": [],
+      "articulation_points": [],
+      "blocks": []
+    },
+    {
+      "name": "isolated",
+      "adjacency": [
+        [],
+        [],
+        []
+      ],
+      "articulation_points": [],
+      "blocks": []
+    },
+    {
+      "name": "chain",
+      "adjacency": [
+        [
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2
+        ]
+      ],
+      "articulation_points": [
+        1,
+        2
+      ],
+      "blocks": [
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "name": "cycle",
+      "adjacency": [
+        [
+          1,
+          3
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "articulation_points": [],
+      "blocks": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "name": "bowtie",
+      "adjacency": [
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          1,
+          3,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "articulation_points": [
+        2
+      ],
+      "blocks": [
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "name": "disconnected cycle bridge isolated",
+      "adjacency": [
+        [
+          1,
+          2
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          4
+        ],
+        [
+          3
+        ],
+        []
+      ],
+      "articulation_points": [],
+      "blocks": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "name": "root with multiple DFS children",
+      "adjacency": [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          0
+        ],
+        [
+          0
+        ],
+        [
+          0
+        ]
+      ],
+      "articulation_points": [
+        0
+      ],
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "name": "invalid and self adjacency ignored",
+      "adjacency": [
+        [
+          0,
+          1,
+          -1,
+          8
+        ],
+        [
+          0,
+          1
+        ],
+        []
+      ],
+      "articulation_points": [],
+      "blocks": [
+        [
+          0,
+          1
+        ]
+      ]
+    }
+  ],
+  "process_graph_structure": {
+    "k": 9,
+    "min_similarity": 0.2,
+    "edges": [
+      {
+        "source": 5,
+        "target": 7,
+        "weight": 0.313839,
+        "distance": 0.405606
+      },
+      {
+        "source": 6,
+        "target": 7,
+        "weight": 0.118802,
+        "distance": 0.745605
+      }
+    ],
+    "articulation_points": [
+      7
+    ],
+    "blocks": [
+      [
+        6,
+        7
+      ],
+      [
+        5,
+        7
+      ]
+    ]
+  }
+}
