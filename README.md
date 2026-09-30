@@ -182,13 +182,21 @@ editable source, examples, tests, docs, the new offline app, and the preserved
 original deliverables. The reference checkout, Git metadata, and private traces
 are excluded.
 
-## Original version and website withdrawal
+## Project files and website listing
 
 The original offline HTML and source ZIP are preserved unchanged in `archive/`.
 `archive/site-v0.1/` holds the former website implementation. Version 0.3 is an
-independent project in `D:\TrajectoryLens` with its own private GitHub repository.
-The personal website's card, research-page links, sitemap URL, and former tool
-directory were removed. This project is not hosted there.
+independent project in `D:\TrajectoryLens` with its own public GitHub repository.
+Source is in `web/`, current offline HTML, source ZIP and screenshots are in
+`artifacts/`, and original versions are in `archive/`. Earlier session files,
+release copies, and downloaded examples were moved from C: to
+`local-history/2026-09-29/`; this local history is excluded from Git and packages.
+Working files and packaging staging directories stay in `work/` on D:.
+
+The personal website lists a screenshot, description and GitHub link under
+[Technical Work](https://junjienian.com/projects.html#trajectory-lens).
+Its TraceGraph entries link to that listing. The app remains an independent
+local tool; the former website tool directory is not restored.
 
 Apache License 2.0. See [LICENSE](LICENSE) and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
