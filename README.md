@@ -23,6 +23,15 @@ data and selected event.
 The bundled examples are synthetic teaching records, not personal sessions or
 experimental measurements. The app does not execute their commands.
 
+For the richer demo shown above, import
+`examples/search-client-four-strategies.json`: four repair strategies for empty
+pages, duplicate search records, and HTTP 429 retries. Its 40 native tool calls
+produce 96 similarity links at six neighbors and 20% minimum overlap. Select
+**C · Full repair**, compare with **A · Retry first**, open **Process map**, zoom
+out to 60%, and select call 8 to inspect the retry patch. Leave **Focus selected
+call** unchecked to see the complete graph. All commands and outputs in this
+example are hand-constructed demonstration records.
+
 ## What the views show
 
 | View | What a node or row means | What a connection means | Useful question |

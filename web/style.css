@@ -194,7 +194,7 @@ kbd { font:10px var(--mono); padding:1px 5px; border:1px solid var(--line); bord
 .legend-dot { display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--muted); }
 .error-dot { background:var(--accent); }.ok-dot { background:var(--green); }
 .legend-ring { display:inline-block; width:8px; height:8px; border:1px dashed var(--amber); border-radius:50%; }
-.process-scroll { max-width:100%; max-height:480px; overflow:auto; scrollbar-width:thin; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--white); }
+.process-scroll { max-width:100%; max-height:560px; overflow:auto; scrollbar-width:thin; border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--white); }
 .process-scroll svg { display:block; max-width:none; }
 .process-node,.process-edge,.map-node { cursor:pointer; }
 .process-node:focus,.process-edge:focus,.map-node:focus { outline:none; }
