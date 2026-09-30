@@ -1,7 +1,7 @@
 # Trajectory Lens
 
 A small local workspace for understanding what an agent actually did: which tool
-call failed, whether an input was repeated, where two runs first differed, and
+call failed, whether an input was repeated, how two runs differ throughout, and
 which steps share observable files, commands, or output features.
 
 Import raw logs. You do **not** need to write state IDs, annotate steps, or prepare
@@ -31,17 +31,45 @@ experimental measurements. The app does not execute their commands.
 | Process map | One invocation occurrence, across every loaded run | Undirected overlap of automatically extracted TraceGraph features | Which steps should I inspect together, even when the full arguments differ? |
 | Action map | One exact tool name + canonical argument combination | Directed transition in recorded call order | Where did the same invocation recur? |
 
+Version **0.3** adds full-text search, evidence-based review, complete invocation
+alignment, readable command/patch output, scoped graphs, and resumable workspaces.
+The quieter two-column layout keeps the trace beside its evidence; smaller
+screens stack them and provide explicit navigation back to the trace.
+
 Click a row or graph point to see the full input, result, status basis, and
 original source records. Open **Observable features** to inspect extracted keys
 and their original matching fragments. **Related calls** takes you to other
-records with nonzero feature overlap. Choose a second run to compare the exact
-call sequence and jump to the first unequal invocation.
+records with nonzero feature overlap. Search commands, file paths, and outputs,
+or combine the tool selector with Failed / Repeated filters. The selected record
+always stays consistent with the visible timeline. A link to a hidden record
+clears incompatible filters so you can see the record you followed.
+
+**Review** identifies three concrete patterns: consecutive identical calls,
+an explicit error followed by an explicit OK for the same invocation, and an
+invocation whose latest recorded attempt still has an explicit error. Each
+finding links to the actual source events. A later unknown or pending attempt
+suppresses the last-error finding. File shortcuts search paths mentioned in the
+records; they do not assert that a file was changed.
+
+Choose a second run and expand **View call-by-call alignment**. Exact inputs are
+aligned with a longest common subsequence, revealing added, absent, and different
+calls. A **≠** marks changed output or status even when inputs match. Unmatched
+spans are paired positionally for display, not semantic equivalence. Repeated
+identical inputs can admit more than one alignment; the deterministic tie rule
+prefers the earliest equal match, then a deletion from A when scores tie.
+Complete alignment supports up to 2,000 calls per run and 4,004,001 matrix cells.
+Over the limit, the app explains the cap and keeps both full timelines available.
 
 The process map places calls from left to right by their relative order in each
 run. Separate lanes identify runs. Positions are a display layout, not a learned
 embedding. Dashed order guides do not enter graph analysis. Solid similarity
 links do. Change **Neighbors** or **Min. overlap** to inspect the displayed graph;
-expand **Explore graph structure** to highlight its biconnected blocks and jump
+choose **Scope** to use all runs, the current run, or the two compared runs.
+Scope recomputes IDF and graph structure within the selected corpus. Zoom and
+**Focus selected call** change only presentation. Dense logs scroll horizontally
+at a readable node spacing. Select a solid link to inspect the shared positive-
+weight signatures; nodes and links also support keyboard selection.
+Expand **Explore graph structure** to highlight its biconnected blocks and jump
 to articulation points. Dotted rings mark these structural connection points.
 
 ## Input formats
@@ -60,7 +88,9 @@ Ambiguous reused IDs and unmatched outputs remain separately inspectable with
 import notes. The importer does not guess pairs from proximity. Formats with an
 embedded action/observation pair retain that documented source pairing.
 
-Files are limited to 10 MB each and 20 MB per import. The optional process map is
+Raw files are limited to 10 MB each and 20 MB per import. A single saved workspace
+can be up to 100 MB because preserving original source records increases its
+size; it passes the same canonical event and evidence validation. The optional process map is
 disabled above 300 invocations; the action map above 80 unique invocations. No
 records are silently sampled. The timeline, features, related search, and raw
 JSON export remain available for the complete imported data.
@@ -73,7 +103,8 @@ pinned at `bc830d534b6d75174a7ada89e786f6f5b6b35402`:
 
 1. Extract observable tool, command, file, diff, observation, and temporal-phase
    keys from each invocation and paired result.
-2. Compute `idf(key) = log((1 + N) / (1 + df(key)))` over all loaded invocations.
+2. Compute `idf(key) = log((1 + N) / (1 + df(key)))` over invocations in the
+   selected process-map scope; related-call search uses all loaded invocations.
 3. Compare key sets using IDF-weighted Jaccard; preserve upstream float32 pairwise
    distance behavior.
 4. Construct reciprocal k-nearest-neighbor links and
@@ -114,11 +145,18 @@ source records.
 
 ## Keep or share your analysis
 
-**Export** offers a Markdown report, canonical raw JSON, and both SVG maps. The
-report includes the selected comparison and process-graph settings. Canonical
-JSON preserves original record text, pairings, status evidence, and automatic
-features. Refreshing or closing the page clears imported logs; export first if
-you want to keep them.
+**Export → Save workspace** keeps canonical raw JSON, original record text,
+pairings, status evidence, automatic features, and your current selection,
+language, comparison, filters, review visibility, and graph settings. Import
+that single JSON file to resume. Importing multiple files combines their logs
+into a fresh workspace. Refreshing or closing the page clears in-memory logs;
+save first if you want to keep them. On narrow screens, Export is in the footer.
+
+Markdown reports include recorded patterns, the complete selected alignment,
+and scoped graph settings. Both maps export as self-contained SVG. Readable
+input/output views decode common command and output wrappers; **Raw** and
+**Original source records** retain the exact imported strings. Copy uses the
+currently displayed text. Unsafe numeric arguments stay in raw form.
 
 Processing runs in this browser with no LLM/API calls and no upload. There is no
 analytics or server storage. The optional Google Fonts stylesheet requests fonts
@@ -135,6 +173,9 @@ node scripts/package.cjs
 Tests cover native exporters, exact-ID pairing, ambiguous/orphan results,
 explicit status, numeric argument identity, source-preserving round trips, and
 parity with TraceGraph feature, distance, neighbor, and structural outputs.
+Additional checks cover exhaustive short sequence alignments, capped 2,000-call
+alignment, evidence-based findings, malicious workspace settings, complete
+save/import restoration, and disjoint click targets on 50- and 300-call graphs.
 `npm run build` embeds the app into `artifacts/TrajectoryLens.html`.
 The packaging script creates `artifacts/TrajectoryLens-source.zip`, including
 editable source, examples, tests, docs, the new offline app, and the preserved
@@ -144,7 +185,7 @@ are excluded.
 ## Original version and website withdrawal
 
 The original offline HTML and source ZIP are preserved unchanged in `archive/`.
-`archive/site-v0.1/` holds the former website implementation. Version 0.2 is an
+`archive/site-v0.1/` holds the former website implementation. Version 0.3 is an
 independent project in `D:\TrajectoryLens` with its own private GitHub repository.
 The personal website's card, research-page links, sitemap URL, and former tool
 directory were removed. This project is not hosted there.

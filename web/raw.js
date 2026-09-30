@@ -7,7 +7,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   var FORMAT = 'trajectory-lens/raw-v1';
-  var LIMITS = Object.freeze({ fileBytes: 10 * 1024 * 1024, totalBytes: 20 * 1024 * 1024, runs: 100, eventsPerRun: 2000, events: 20000 });
+  var LIMITS = Object.freeze({ fileBytes: 10 * 1024 * 1024, totalBytes: 20 * 1024 * 1024, workspaceBytes: 100 * 1024 * 1024, runs: 100, eventsPerRun: 2000, events: 20000 });
   var has = function (value, key) { return Object.prototype.hasOwnProperty.call(value, key); };
   var object = function (value) { return value !== null && typeof value === 'object' && !Array.isArray(value); };
   var error = function (message) { throw new Error(message); };
@@ -364,6 +364,18 @@
     if (!records.length) error('No JSONL records were found.');
     return { parsed: records, sources: sources, jsonl: true };
   }
+  function parseWorkspace(text) {
+    // Snapshots contain duplicated source evidence and can be larger than the
+    // original raw logs. This separate path cannot raise native-log limits.
+    if (typeof text !== 'string' || !text.trim()) error('The input is empty.');
+    if (bytes(text) > LIMITS.workspaceBytes) error('Saved workspace exceeds 100 MB.');
+    var raw;
+    try { raw = JSON.parse(text.replace(/^\uFEFF/, '')); }
+    catch (failure) { error('Invalid workspace JSON: ' + failure.message); }
+    if (!object(raw) || raw.format !== FORMAT || !object(raw.workspace)) error('Files above 10 MB must be a saved Trajectory Lens workspace.');
+    validateDatasetForMigration(raw);
+    return validateDataset(withOutputFlags(clone(raw)));
+  }
   function parse(text, filename) {
     var decoded = decodeText(text, filename), raw = decoded.parsed, sources = decoded.sources;
     if (object(raw) && raw.format === FORMAT) { validateDatasetForMigration(raw); return validateDataset(withOutputFlags(clone(raw))); }
@@ -486,5 +498,5 @@
     (data.warnings || []).forEach(function (warning) { lines.push('- ' + markdown(warning)); });
     return lines.join('\n') + '\n';
   }
-  return Object.freeze({ parse: parse, importFiles: importFiles, analyze: analyze, compare: compare, exportJSON: exportJSON, exportMarkdown: exportMarkdown, limits: LIMITS, format: FORMAT });
+  return Object.freeze({ parse: parse, parseWorkspace: parseWorkspace, importFiles: importFiles, analyze: analyze, compare: compare, exportJSON: exportJSON, exportMarkdown: exportMarkdown, limits: LIMITS, format: FORMAT });
 });

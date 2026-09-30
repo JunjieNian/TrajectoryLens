@@ -43,7 +43,9 @@ No private conversations or session logs are bundled.
   listings, and documentation can match; an `OBS:AssertionError` or
   `OBS:test_failed` key is not a verified execution failure. Imported execution
   status is kept separate and is not inferred from those signatures.
-- IDF uses every loaded invocation: `log((1 + N) / (1 + df(key)))`.
+- IDF uses every invocation within the selected process-map scope:
+  `log((1 + N) / (1 + df(key)))`. Scope can select all loaded runs, the current
+  run, or the compared pair; related-call search always uses all loaded calls.
   Similarity is IDF-weighted Jaccard over observable key sets, not semantic
   reasoning equivalence. Keys shared by all invocations have weight zero.
   When the union has zero total weight, similarity is zero, including
@@ -52,7 +54,7 @@ No private conversations or session logs are bundled.
   order is unspecified. The optional graph applies a displayed minimum
   similarity threshold after reciprocal neighbor construction, and defaults
   to hiding similarities below 0.2. This filter is a viewer extension.
-- The browser graph is disabled above 300 invocations instead of silently
+- The browser graph is disabled above 300 invocations in its scope instead of silently
   sampling. Chronology, signatures and related-step search still include the
   entire imported dataset. This differs from the offline pipeline's larger
   cap and random sampling policy.
@@ -63,6 +65,11 @@ No private conversations or session logs are bundled.
   runs only. Cut vertices can belong to multiple blocks; isolated nodes belong
   to none; two-node bridges are explicitly marked trivial. No temporal path
   edges are added to the graph used for this decomposition.
+- `web/insights.js`, `web/workspace.js`, and `web/process-view.js` are viewer
+  additions. Exact-call LCS alignment and rule-based review findings are not
+  upstream TraceGraph inference. Saved UI state does not replace source evidence.
+  Natural-width graph layout, keyboard controls, zoom, and focus do not alter
+  graph topology. Link details show only positive-IDF shared features.
 
 This viewer does not implement TraceGraph's block roles, reward propagation,
 recovery gates, failure basins, clustering,

@@ -36,8 +36,52 @@
   });
   en.methodsHtml=en.methodsHtml.replace('The tool does not reproduce outcome diffusion, traps, BCCs, or paper results.', 'The process map uses reciprocal k-nearest neighbors over IDF-weighted Jaccard distance, then hides links below the selected overlap. Biconnected blocks and articulation points follow the pinned TraceGraph algorithms on this filtered undirected graph. Dotted guide lines and relative call-order positions are display aids and do not enter the structural calculation. A block or connection point does not establish a trap, a reward, or a causal effect. The tool does not reproduce outcome diffusion or paper results. The process map is disabled above 300 calls; nothing is sampled.');
   zh.methodsHtml=zh.methodsHtml.replace('不复现结果扩散、trap、BCC 或论文结果。', '过程图基于 IDF 加权 Jaccard 距离构建互惠近邻边，再按所选重叠阈值隐藏弱联系。双连通分块与割点沿用固定版本 TraceGraph 的算法，作用于当前筛选后的无向相似图。虚线与相对调用位置仅用于显示，不参与结构计算。分块或连接点不能证明陷阱、收益或因果关系，不复现结果扩散或论文结果。超过 300 次调用时禁用过程图，不抽样省略调用。');
+  Object.assign(en, {
+    researchWorkspace:'Agent trace workspace', localOnly:'Processed locally', relatedSteps:'Related calls',
+    review:'Review', recordedPatterns:'Worth a closer look', reviewExplanation:'Patterns in recorded calls, with direct links to the evidence.',
+    searchPlaceholder:'Search commands, files, or output…', allTools:'All tools', shownCount:'{shown} of {total}', clearFilters:'Clear filters', noSelection:'Select a call to inspect its recorded input and output.',
+    graphScope:'Scope', allRuns:'All runs', currentRun:'Current run', comparedRuns:'Compared runs', focusNeighbors:'Focus selected call', connectionPointShort:'Connection point', weightedOverlap:'Feature overlap',
+    backToTimeline:'↑ Back to trajectory', keyboardHint:'/ search · ↑ ↓ navigate', localWorkspace:'Local workspace', yourRecords:'Your records, intact',
+    saveWorkspace:'Save workspace', workspaceDescription:'Raw records and current view. Import to resume.', workspaceRestored:'Workspace restored.', workspaceSaved:'Workspace download started.',
+    executeCommand:'Run command', applyPatch:'Apply patch', readFile:'Read file', patchFile:'Patch file', unknownStatusBasis:'No explicit status was recorded.', formatted:'Readable', original:'Raw', filesInTrace:'Files mentioned in these records',
+    findingRecheck:'Error cleared on a later recheck', findingRepeat:'Same input repeated consecutively', findingLastError:'Last recorded attempt still reports an error', noFindings:'No supported review patterns in this run.',
+    changedOutputs:'changed results', alignmentExplanation:'Exact tool names and full inputs are aligned in order. ≠ marks a changed output or status for a matching input.', viewAlignment:'View call-by-call alignment', alignmentLimit:'Complete alignment is unavailable above 2,000 calls per run or 4,004,001 comparison cells. Both full timelines remain available.', equalChanged:'Same input · different result', equalCall:'Same input', alignmentinsert:'Added in comparison', alignmentdelete:'Absent from comparison', alignmentreplace:'Different input',
+    sharedEvidence:'Why these calls are connected', sharedEvidenceExplanation:'Shared signatures with positive weight in the selected graph scope.', close:'Close', occurrences:'Occurrences', observedTransitions:'observed transitions', recordedOccurrences:'Recorded occurrences',
+    processSvgTitle:'TraceGraph observable process map', processNodeTitle:'{run} · {call} · {tool} · {status}', processSimilarityEdge:'{source} ↔ {target} · {overlap}% signature overlap',
+    processExplanation:'One point per recorded call. Solid links show shared TraceGraph features; dashed guides show order. Scope changes the calls and IDF weights used to build the graph.',
+    processSvgDescription:'Recorded calls, observable similarity, and graph structure', reportDescription:'Recorded patterns, complete call alignment and method notes',
+    noExecution:'No commands run and no logs leave this browser. Save your workspace before closing or refreshing.',
+    fileLimit:'Raw logs: 10 MB each, 20 MB total · Saved workspace: 100 MB', searchLabel:'Search recorded calls', toolFilterLabel:'Filter by tool', previousCall:'Previous call', nextCall:'Next call', zoomIn:'Zoom in', zoomOut:'Zoom out', zoomReset:'Reset zoom'
+  });
+  Object.assign(zh, {
+    researchWorkspace:'Agent 日志工作台', localOnly:'本地处理', relatedSteps:'相关调用',
+    review:'检查', recordedPatterns:'值得回看的记录', reviewExplanation:'从实际调用中找到的模式，可直接跳到原始记录。',
+    searchPlaceholder:'搜索命令、文件或输出…', allTools:'全部工具', shownCount:'{shown} / {total}', clearFilters:'清除筛选', noSelection:'选择一次调用，查看其记录的输入与输出。',
+    graphScope:'范围', allRuns:'全部运行', currentRun:'当前运行', comparedRuns:'对比的运行', focusNeighbors:'聚焦选中调用', connectionPointShort:'连接点', weightedOverlap:'特征重叠',
+    backToTimeline:'↑ 返回轨迹', keyboardHint:'/ 搜索 · ↑ ↓ 切换调用', localWorkspace:'本地工作台', yourRecords:'保留完整记录',
+    saveWorkspace:'保存工作区', workspaceDescription:'原始记录与当前视图，重新导入即可继续。', workspaceRestored:'已恢复工作区。', workspaceSaved:'已开始下载工作区。',
+    executeCommand:'执行命令', applyPatch:'应用补丁', readFile:'读取文件', patchFile:'修改文件', unknownStatusBasis:'记录中没有明确状态。', formatted:'易读', original:'原文', filesInTrace:'记录中提到的文件',
+    findingRecheck:'后续相同调用不再报错', findingRepeat:'连续使用了相同输入', findingLastError:'最后一次已记录尝试仍然报错', noFindings:'此运行没有符合当前规则的检查结果。',
+    changedOutputs:'处结果不同', alignmentExplanation:'按精确工具名与完整输入对齐调用顺序。≠ 表示相同输入的输出或状态发生变化。', viewAlignment:'查看逐次调用对齐', alignmentLimit:'每条运行超过 2,000 次调用或对比矩阵超过 4,004,001 个单元时，不计算完整对齐；两条完整时间线仍可查看。', equalChanged:'输入相同 · 结果不同', equalCall:'输入相同', alignmentinsert:'对比运行新增', alignmentdelete:'对比运行中缺少', alignmentreplace:'输入不同',
+    sharedEvidence:'这两次调用为什么相连', sharedEvidenceExplanation:'当前图范围内权重大于零的共同特征。', close:'关闭', occurrences:'出现次数', observedTransitions:'条实测转移', recordedOccurrences:'对应的原始调用',
+    processSvgTitle:'TraceGraph 可观察过程图', processNodeTitle:'{run} · {call} · {tool} · {status}', processSimilarityEdge:'{source} ↔ {target} · 特征重叠 {overlap}%',
+    processExplanation:'每个点是一次实际调用。实线表示 TraceGraph 共同特征，虚线表示顺序。切换范围会改变参与建图的调用与 IDF 权重。',
+    processSvgDescription:'原始调用、可观察相似性与图结构', reportDescription:'记录中的模式、完整调用对齐与方法说明',
+    noExecution:'不执行命令，不上传日志。关闭或刷新页面前，请保存工作区。',
+    fileLimit:'原始日志每份 10 MB、合计 20 MB；单个已保存工作区 100 MB', searchLabel:'搜索记录中的调用', toolFilterLabel:'按工具筛选', previousCall:'上一次调用', nextCall:'下一次调用', zoomIn:'放大', zoomOut:'缩小', zoomReset:'重置缩放'
+  });
+  en.methodsHtml += '<h3>Review and comparison</h3><p>Review lists consecutive identical invocations, explicit errors followed by an explicit OK for the same input, and invocations whose latest recorded attempt is an error. A later unknown or pending attempt is not treated as an unresolved error. These are observations about the recorded calls, not a task-quality score. File links use extracted path evidence, which may come from quoted source or output.</p><p>Comparison aligns exact invocations using a longest common subsequence. Unmatched spans are paired positionally for display; those pairs do not establish semantic equivalence. Output, status, and output presence are compared separately. At most 2,000 calls per run and 4,004,001 comparison cells are supported; no partial alignment is presented.</p><h3>Graph scope and saved workspaces</h3><p>Process-map scope selects all runs, the inspected run, or the two compared runs. IDF and graph structure are recomputed within that scope. Related-call search uses all loaded calls. Zoom and focus only change presentation. The 300-call graph limit applies to the chosen scope.</p><p>Save workspace keeps the original records and your language, selection, filters, comparison, and graph settings in JSON. Import that single file to resume. Loading multiple files combines their logs into a new workspace.</p>';
+  zh.methodsHtml += '<h3>检查与对比</h3><p>检查会列出连续相同调用、明确报错后相同输入得到明确正常状态的调用，以及最后一次已记录尝试仍报错的调用。后续未知或未返回的尝试不会被当作未解决错误。这些是记录中的现象，不是任务质量分数。文件链接来自路径提取依据，可能出现在引用的源码或输出中。</p><p>对比用最长公共子序列对齐精确调用。未匹配片段按位置并列展示，不表示语义等价。分别检查输出文本、状态与输出是否存在。每条运行上限 2,000 次调用，对比矩阵上限 4,004,001 个单元；超限不会展示不完整的对齐。</p><h3>图的范围与工作区保存</h3><p>过程图可以选全部运行、当前运行或对比的两条运行，并在该范围内重新计算 IDF 和图结构。相关调用搜索使用全部已加载调用。缩放和聚焦只改变显示。300 次调用上限作用于所选范围。</p><p>保存工作区会将原始记录与语言、选中调用、筛选、对比和图设置写入 JSON。单独重新导入该文件即可继续。多文件导入会合并日志，建立新工作区。</p>';
   let language = 'en';
   function t(key, values={}) { return String((language==='zh'?zh:en)[key]??en[key]??key).replace(/\{(\w+)\}/g, (_,name)=>values[name]??'{'+name+'}'); }
-  function apply(){document.documentElement.lang=language==='zh'?'zh-CN':'en';document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));const b=document.getElementById('language-button');b.textContent=language==='en'?'中文':'EN';b.setAttribute('aria-label',language==='en'?'Switch to Chinese':'Switch to English');}
+  function apply(){
+    document.documentElement.lang=language==='zh'?'zh-CN':'en';
+    document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>el.setAttribute('placeholder',t(el.dataset.i18nPlaceholder)));
+    const labels={'search-input':'searchLabel','tool-filter':'toolFilterLabel','previous-event':'previousCall','next-event':'nextCall','graph-zoom-in':'zoomIn','graph-zoom-out':'zoomOut','graph-reset':'zoomReset'};
+    Object.entries(labels).forEach(([id,key])=>document.getElementById(id)?.setAttribute('aria-label',t(key)));
+    document.querySelectorAll('.icon-button.close').forEach(el=>el.setAttribute('aria-label',t('close')));
+    const b=document.getElementById('language-button');b.textContent=language==='en'?'中文':'EN';b.setAttribute('aria-label',language==='en'?'Switch to Chinese':'Switch to English');
+  }
   window.TL_I18N = {t,apply,get:()=>language,set:value=>{language=value==='zh'?'zh':'en';apply();document.dispatchEvent(new CustomEvent('lens-language'));}};
 })();

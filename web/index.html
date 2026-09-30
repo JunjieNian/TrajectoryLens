@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Inspect raw agent tool calls, paired outputs, repeated invocations, and observable TraceGraph signatures in your browser.">
+  <meta name="description" content="A local workspace for reading, comparing, and reviewing agent traces with TraceGraph.">
   <title>Trajectory Lens</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,50 +15,80 @@
 <body>
 <a class="skip" href="#main" data-i18n="skip">Skip to workspace</a>
 <header class="site-header">
-  <a href="./index.html" class="wordmark">Trajectory <span>Lens</span><small>0.2</small></a>
+  <a href="#main" class="wordmark" aria-label="Trajectory Lens home">
+    <svg viewBox="0 0 30 30" aria-hidden="true"><path d="M6 22 14 7 24 19M6 22l18-3" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="6" cy="22" r="3"/><circle cx="14" cy="7" r="3"/><circle cx="24" cy="19" r="3"/></svg>
+    Trajectory <span>Lens</span><small>0.3</small>
+  </a>
   <nav aria-label="Workspace navigation">
-    <a href="https://github.com/JunjieNian/TrajectoryLens" target="_blank" rel="noopener" data-i18n="repository">Repository ↗</a>
     <button class="plain" id="method-open" data-i18n="howItWorks">How it works</button>
     <button class="language" id="language-button" aria-label="Switch to Chinese">中文</button>
+    <button class="secondary" id="export-open" data-i18n="export">Export</button>
+    <button class="primary" id="import-open"><span aria-hidden="true">＋</span> <span data-i18n="importLogs">Import logs</span></button>
   </nav>
 </header>
 <main id="main">
-  <section class="intro">
-    <p class="kicker" data-i18n="researchWorkspace">A workspace for agent logs</p>
-    <div class="intro-row"><div><h1 data-i18n="headline">Trajectory Lens</h1><p class="lead" data-i18n="lead">Inspect raw tool calls, results, and related process steps. No state labels needed.</p></div><button class="primary" id="import-open" data-i18n="importLogs">Import logs</button></div>
+  <section class="dataset-heading">
+    <div>
+      <div class="eyebrow"><span id="data-kind"></span><span class="eyebrow-dot">·</span><span data-i18n="researchWorkspace">Agent trace workspace</span></div>
+      <h1 id="dataset-name">Trajectory Lens</h1>
+    </div>
+    <div class="dataset-actions"><span class="local-note"><span class="local-dot" aria-hidden="true"></span><span data-i18n="localOnly">Processed locally</span></span><button class="text-link" id="reset-demo" data-i18n="loadExample">Load example</button></div>
   </section>
-  <div class="dataset-line"><span class="dataset-badge" id="data-kind"></span><strong id="dataset-name"></strong><span class="local-note" data-i18n="localOnly">Files stay in this browser</span><button class="text-link" id="reset-demo" data-i18n="loadExample">Load example</button></div>
   <section class="run-toolbar" aria-label="Run selection">
     <label><span data-i18n="inspectRun">Inspect run</span><select id="run-select"></select></label>
     <label><span data-i18n="compareWith">Compare with</span><select id="compare-select"></select></label>
     <div id="run-metrics" class="run-metrics" aria-live="polite"></div>
-    <button class="secondary" id="export-open" data-i18n="export">Export</button>
   </section>
-  <div class="source-summary" id="source-summary"></div>
-  <details id="warnings" class="warnings" hidden><summary id="warning-summary"></summary><div id="warning-list"></div></details>
+  <div class="provenance-line"><div class="source-summary" id="source-summary"></div><details id="warnings" class="warnings" hidden><summary id="warning-summary"></summary><div id="warning-list"></div></details></div>
   <section class="comparison" id="comparison" hidden aria-label="Invocation sequence comparison"></section>
   <div class="work-grid">
-    <section class="timeline-panel" aria-label="Chronological log">
-      <div class="panel-top"><h2 id="view-heading">Tool-call timeline</h2><div class="view-buttons"><button id="timeline-view" class="active" aria-pressed="true" data-i18n="timelineTab">Timeline</button><button id="process-view" aria-pressed="false" data-i18n="processMap">Process map</button><button id="map-view" aria-pressed="false" data-i18n="actionMap">Action map</button></div></div>
-      <div class="filter-row"><div role="group" aria-label="Filter calls" class="filter-buttons"><button data-filter="all" class="active" aria-pressed="true" data-i18n="all">All</button><button data-filter="failed" aria-pressed="false" data-i18n="failed">Failed</button><button data-filter="repeated" aria-pressed="false" data-i18n="repeated">Repeated</button></div><label class="messages-toggle"><input type="checkbox" id="show-messages"><span data-i18n="showMessages">Include messages</span></label></div>
-      <p class="timeline-explanation" id="timeline-explanation"></p>
+    <section class="timeline-panel" aria-label="Recorded trajectory">
+      <div class="panel-top">
+        <div class="view-buttons" role="group" aria-label="Trajectory view">
+          <button id="timeline-view" class="active" aria-pressed="true" data-i18n="timelineTab">Timeline</button>
+          <button id="process-view" aria-pressed="false" data-i18n="processMap">Process map</button>
+          <button id="map-view" aria-pressed="false" data-i18n="actionMap">Action map</button>
+        </div>
+        <button id="review-toggle" class="review-toggle" aria-expanded="false" aria-controls="review-panel"><span data-i18n="review">Review</span><span id="review-count">0</span></button>
+        <h2 id="view-heading" class="sr-only">Tool-call timeline</h2>
+      </div>
+      <section id="review-panel" class="review-panel" hidden aria-label="Recorded patterns"><div class="review-heading"><h3 data-i18n="recordedPatterns">Worth a closer look</h3><p data-i18n="reviewExplanation">Patterns in recorded calls, with direct links to the evidence.</p></div><div id="review-findings"></div><div id="review-files"></div></section>
+      <div class="timeline-controls" id="timeline-controls">
+        <div class="search-row"><label class="search-field"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="m12 12 5 5"/></svg><input id="search-input" type="search" autocomplete="off" spellcheck="false" data-i18n-placeholder="searchPlaceholder" aria-label="Search recorded calls"><kbd>/</kbd></label><select id="tool-filter" aria-label="Filter by tool"></select></div>
+        <div class="filter-row"><div role="group" aria-label="Filter calls" class="filter-buttons"><button data-filter="all" class="active" aria-pressed="true" data-i18n="all">All</button><button data-filter="failed" aria-pressed="false" data-i18n="failed">Failed</button><button data-filter="repeated" aria-pressed="false" data-i18n="repeated">Repeated</button></div><label class="messages-toggle"><input type="checkbox" id="show-messages"><span data-i18n="showMessages">Include messages</span></label><span class="timeline-explanation" id="timeline-explanation" aria-live="polite"></span></div>
+      </div>
       <div id="timeline" class="timeline-list" aria-live="polite"></div>
-      <div id="map-container" class="map-container" hidden><p class="map-caption" data-i18n="mapExplanation">Each node is an exact tool invocation. Arrows follow actual call order; repeated nodes are not inferred states.</p><svg id="action-map" role="img" aria-label="Exact tool invocation map"></svg><p id="map-note" class="muted small"></p></div>
-      <div id="process-container" class="map-container" hidden><p class="map-caption" data-i18n="processExplanation">Each point is a recorded call. Similarity links come from automatically extracted TraceGraph signatures.</p><div class="process-settings"><label><span data-i18n="neighbors">Neighbors</span><select id="process-k"><option value="3">3</option><option value="6" selected>6</option><option value="10">10</option></select></label><label><span data-i18n="minimumOverlap">Minimum overlap</span><select id="process-threshold"><option value="0">0%</option><option value="0.2" selected>20%</option><option value="0.4">40%</option><option value="0.6">60%</option></select></label></div><div class="process-scroll"><svg id="process-map" role="img" aria-label="TraceGraph observable process map"></svg></div><p id="process-note" class="muted small" aria-live="polite"></p><details class="process-blocks"><summary data-i18n="structuralBlocks">Structural blocks and connection points</summary><div id="process-blocks"></div></details></div>
+      <div id="map-container" class="map-container" hidden><p class="map-caption" data-i18n="mapExplanation"></p><div class="action-scroll"><svg id="action-map" role="group" aria-label="Exact tool invocation map"></svg></div><p id="map-note" class="muted small"></p><div id="action-occurrences" class="action-occurrences"></div></div>
+      <div id="process-container" class="map-container" hidden>
+        <div class="process-settings">
+          <label><span data-i18n="graphScope">Scope</span><select id="process-scope"><option value="all" data-i18n="allRuns">All runs</option><option value="run" data-i18n="currentRun">Current run</option><option value="compared" data-i18n="comparedRuns">Compared runs</option></select></label>
+          <label><span data-i18n="neighbors">Neighbors</span><select id="process-k"><option value="3">3</option><option value="6" selected>6</option><option value="10">10</option></select></label>
+          <label><span data-i18n="minimumOverlap">Min. overlap</span><select id="process-threshold"><option value="0">0%</option><option value="0.2" selected>20%</option><option value="0.4">40%</option><option value="0.6">60%</option></select></label>
+          <div class="graph-tools"><button id="graph-zoom-out" class="icon-button" aria-label="Zoom out">−</button><button id="graph-reset" class="text-link">100%</button><button id="graph-zoom-in" class="icon-button" aria-label="Zoom in">＋</button></div>
+        </div>
+        <div class="graph-context"><label class="messages-toggle"><input type="checkbox" id="process-focus"><span data-i18n="focusNeighbors">Focus selected call</span></label><span class="graph-legend"><span><i class="legend-dot error-dot"></i><span data-i18n="statusError">Error</span></span><span><i class="legend-dot ok-dot"></i><span data-i18n="statusOk">OK</span></span><span><i class="legend-ring"></i><span data-i18n="connectionPointShort">Connection point</span></span></span></div>
+        <div class="process-scroll"><svg id="process-map" role="group" aria-label="TraceGraph observable process map"></svg></div>
+        <p id="process-note" class="muted small" aria-live="polite"></p>
+        <div id="edge-detail" class="edge-detail" hidden></div>
+        <details class="process-blocks"><summary data-i18n="structuralBlocks">Explore graph structure</summary><div id="process-blocks"></div></details>
+        <p class="map-caption bottom-caption" data-i18n="processExplanation"></p>
+      </div>
     </section>
-    <aside class="inspector" aria-label="Selected event details">
-      <div class="inspector-top"><p class="kicker" data-i18n="recordEvidence">Recorded evidence</p><span id="event-location" class="mono"></span></div>
+    <aside class="inspector" id="inspector" aria-label="Selected event details">
+      <div class="inspector-top"><span class="eyebrow" data-i18n="recordEvidence">Recorded evidence</span><div class="event-navigation"><button id="previous-event" class="icon-button" aria-label="Previous call">↑</button><button id="next-event" class="icon-button" aria-label="Next call">↓</button></div></div>
+      <div id="event-location" class="event-location"></div>
       <div id="event-detail"></div>
-      <details class="features-section" id="features-section"><summary data-i18n="observableFeatures">Observable features</summary><button class="text-link" id="feature-help" data-i18n="whatMatches">What matches?</button><div id="feature-keys"></div><details class="feature-evidence"><summary data-i18n="showFeatureEvidence">Show extraction evidence</summary><div id="feature-evidence"></div></details></details>
-      <section class="related-section" id="related-section"><h3 data-i18n="relatedSteps">Related calls in these logs</h3><p class="small muted" data-i18n="relatedExplanation">Shared file, command, or output signatures. A local comparison of the loaded records.</p><div id="related-list"></div></section>
+      <details class="features-section" id="features-section"><summary><span data-i18n="observableFeatures">Observable features</span><span id="feature-count"></span></summary><button class="text-link" id="feature-help" data-i18n="whatMatches">What matches?</button><div id="feature-keys"></div><details class="feature-evidence"><summary data-i18n="showFeatureEvidence">Show extraction evidence</summary><div id="feature-evidence"></div></details></details>
+      <section class="related-section" id="related-section"><div class="section-label"><h3 data-i18n="relatedSteps">Related calls</h3><span data-i18n="weightedOverlap">Feature overlap</span></div><div id="related-list"></div></section>
+      <button id="back-to-timeline" class="text-link mobile-back" data-i18n="backToTimeline">↑ Back to trajectory</button>
     </aside>
   </div>
 </main>
-<footer><span>Trajectory Lens · Junjie Nian</span><span data-i18n="footer">Read the process, keep the evidence.</span><button class="text-link" id="method-footer" data-i18n="formatsMethods">Formats & methods</button></footer>
-<dialog id="import-dialog"><div class="dialog-head"><h2 data-i18n="importTitle">Bring your raw logs</h2><button class="close" aria-label="Close">×</button></div><p data-i18n="importIntro">Choose one or more JSON / JSONL logs. OpenAI-style messages and supported Codex logs are recognized automatically. No annotated states required.</p><label class="file-zone" id="drop-zone"><input type="file" id="file-input" accept=".json,.jsonl,.ndjson,.traj,.txt,application/json" multiple><strong id="file-label" data-i18n="chooseFiles">Choose files or drop them here</strong><span data-i18n="fileLimit">Up to 10 MB per file, 20 MB in total</span></label><div class="paste-heading"><label for="paste-input" data-i18n="pasteInstead">Or paste a log</label><button class="text-link" id="download-demo" data-i18n="downloadExample">Download raw example</button></div><textarea id="paste-input" rows="8" spellcheck="false" placeholder='{"messages":[{"role":"assistant","tool_calls":[{"id":"call-1","function":{"name":"exec_command","arguments":"{\"cmd\":\"pytest -q\"}"}}]},{"role":"tool","tool_call_id":"call-1","content":"{\"exit_code\":1,\"output\":\"1 failed\"}"}]}'></textarea><p class="small muted" data-i18n="noExecution">We inspect logs; no commands are executed and no files are uploaded. Refreshing clears imported data.</p><p class="error" id="import-error" role="alert" hidden></p><div class="dialog-actions"><button class="secondary close" data-i18n="cancel">Cancel</button><button class="primary" id="import-confirm" data-i18n="inspectLogs">Inspect logs</button></div></dialog>
-<dialog id="method-dialog"><div class="dialog-head"><h2 data-i18n="methodTitle">From records to a useful timeline</h2><button class="close" aria-label="Close">×</button></div><div id="method-content"></div><div class="dialog-actions"><button class="primary close" data-i18n="understood">Understood</button></div></dialog>
-<dialog id="export-dialog"><div class="dialog-head"><h2 data-i18n="exportTitle">Keep your analysis</h2><button class="close" aria-label="Close">×</button></div><p data-i18n="exportIntro">Exports retain original records and distinguish observed call outcomes from unknown task outcomes.</p><div class="export-options"><button id="export-report"><strong data-i18n="report">Markdown report</strong><span data-i18n="reportDescription">Call counts, repeated inputs, first differing call, and limitations</span></button><button id="export-json"><strong data-i18n="canonical">Canonical raw JSON</strong><span data-i18n="canonicalDescription">Events, paired results, and original source records</span></button><button id="export-svg"><strong data-i18n="svg">SVG action map</strong><span data-i18n="svgDescription">Exact invocation nodes and observed call-order edges</span></button><button id="export-process-svg"><strong data-i18n="processSvg">SVG process map</strong><span data-i18n="processSvgDescription">Automatically extracted similarities between recorded calls</span></button></div></dialog>
+<footer><span>Trajectory Lens · Junjie Nian</span><div><a href="https://github.com/JunjieNian/TrajectoryLens" target="_blank" rel="noopener" data-i18n="repository">Repository ↗</a><button class="text-link" id="export-footer" data-i18n="export">Export</button><button class="text-link" id="method-footer" data-i18n="formatsMethods">Formats & methods</button></div><span class="keyboard-note" data-i18n="keyboardHint">/ search · ↑ ↓ navigate</span></footer>
+<dialog id="import-dialog"><div class="dialog-head"><div><p class="eyebrow" data-i18n="localWorkspace">Local workspace</p><h2 data-i18n="importTitle">Bring your raw logs</h2></div><button class="close icon-button" aria-label="Close">×</button></div><p data-i18n="importIntro"></p><label class="file-zone" id="drop-zone"><input type="file" id="file-input" accept=".json,.jsonl,.ndjson,.traj,.txt,application/json" multiple><span class="upload-symbol" aria-hidden="true">↗</span><strong id="file-label" data-i18n="chooseFiles">Choose files or drop them here</strong><span data-i18n="fileLimit">Up to 10 MB per file, 20 MB in total</span></label><div class="paste-heading"><label for="paste-input" data-i18n="pasteInstead">Or paste a log</label><button class="text-link" id="download-demo" data-i18n="downloadExample">Download raw example</button></div><textarea id="paste-input" rows="7" spellcheck="false" placeholder='{"messages": [...]}'></textarea><p class="small muted" data-i18n="noExecution"></p><p class="error" id="import-error" role="alert" hidden></p><div class="dialog-actions"><button class="secondary close" data-i18n="cancel">Cancel</button><button class="primary" id="import-confirm" data-i18n="inspectLogs">Inspect logs</button></div></dialog>
+<dialog id="method-dialog"><div class="dialog-head"><h2 data-i18n="methodTitle">Reading a trajectory</h2><button class="close icon-button" aria-label="Close">×</button></div><div id="method-content"></div><div class="dialog-actions"><button class="primary close" data-i18n="understood">Understood</button></div></dialog>
+<dialog id="export-dialog"><div class="dialog-head"><div><p class="eyebrow" data-i18n="yourRecords">Your records, intact</p><h2 data-i18n="exportTitle">Keep your analysis</h2></div><button class="close icon-button" aria-label="Close">×</button></div><p data-i18n="exportIntro"></p><div class="export-options"><button id="export-json"><span class="export-kind">JSON</span><span><strong data-i18n="saveWorkspace">Save workspace</strong><small data-i18n="workspaceDescription">Raw records, analysis and current view. Import to resume.</small></span><span aria-hidden="true">↗</span></button><button id="export-report"><span class="export-kind">MD</span><span><strong data-i18n="report">Analysis report</strong><small data-i18n="reportDescription"></small></span><span aria-hidden="true">↗</span></button><button id="export-process-svg"><span class="export-kind">SVG</span><span><strong data-i18n="processSvg">Process map</strong><small data-i18n="processSvgDescription"></small></span><span aria-hidden="true">↗</span></button><button id="export-svg"><span class="export-kind">SVG</span><span><strong data-i18n="svg">Action map</strong><small data-i18n="svgDescription"></small></span><span aria-hidden="true">↗</span></button></div></dialog>
 <div id="toast" class="toast" role="status" hidden></div>
-<script src="raw.js"></script><script src="signatures.js"></script><script src="demo.js"></script><script src="i18n.js"></script><script src="app.js"></script>
+<script src="raw.js"></script><script src="signatures.js"></script><script src="insights.js"></script><script src="workspace.js"></script><script src="process-view.js"></script><script src="demo.js"></script><script src="i18n.js"></script><script src="app.js"></script>
 </body>
 </html>

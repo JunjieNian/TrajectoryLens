@@ -1,6 +1,6 @@
 {
   "name": "trajectory-lens",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Inspect raw agent tool calls, outputs and observable TraceGraph signatures without manual state annotations.",
   "scripts": {
